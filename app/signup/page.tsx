@@ -373,7 +373,6 @@ export default function SignupPage() {
                     alignItems: 'flex-start',
                   }}
                 >
-                  <span style={{ fontSize: '0.9rem', flexShrink: 0 }}>ℹ️</span>
                   <p style={{ fontSize: '0.78rem', color: '#996600', lineHeight: 1.55 }}>
                     호스트 계정은 시스템이 자동으로 ID/PW를 발급합니다. 가입 완료 후 화면에 표시됩니다.
                   </p>

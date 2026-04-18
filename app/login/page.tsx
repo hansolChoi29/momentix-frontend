@@ -82,10 +82,7 @@ export default function LoginPage() {
 
           <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>WELCOME BACK</p>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '0.3rem' }}>로그인</h1>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '2rem' }}>
-            계정이 없으신가요?{' '}
-            <Link href="/signup" style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>회원가입</Link>
-          </p>
+          
 
           {/* 폼 */}
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -104,9 +101,7 @@ export default function LoginPage() {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
                 <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-sub)' }}>비밀번호</label>
-                <button type="button" style={{ background: 'none', border: 'none', fontSize: '0.78rem', color: 'var(--primary)', cursor: 'pointer', fontFamily: 'inherit' }}>
-                  비밀번호 찾기
-                </button>
+               
               </div>
               <input
                 type="password"
@@ -116,6 +111,7 @@ export default function LoginPage() {
                 onChange={(e) => setForm(f => ({ ...f, password: e.target.value }))}
                 required
               />
+              
             </div>
 
             {error && (
@@ -143,6 +139,41 @@ export default function LoginPage() {
               ) : '로그인'}
             </button>
           </form>
+          <div className="flex justify-between gap-4">
+            <p
+              style={{
+                fontSize: '0.85rem',
+                color: 'var(--text-muted)',
+                marginBottom: 0,
+              }}
+            >
+              계정이 없으신가요?{' '}
+              <Link
+                href="/signup"
+                style={{
+                  color: 'var(--primary)',
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                }}
+              >
+                회원가입
+              </Link>
+            </p>
+
+            <button
+              type="button"
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '0.78rem',
+                color: 'var(--primary)',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              비밀번호 찾기
+            </button>
+          </div>
 
           {/* 구분선 */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '1.5rem 0' }}>
