@@ -35,7 +35,7 @@ export default function Footer() {
           ))}
         </div>
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-          <p style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.35)' }}>© 2025 Momentix Inc. All rights reserved.</p>
+          <p style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.35)' }}>© 2025 MaeJinImBack.</p>
           <p style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.35)' }}>공연 티켓팅의 새로운 기준</p>
         </div>
       </div>
