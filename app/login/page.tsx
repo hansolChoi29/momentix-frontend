@@ -58,7 +58,7 @@ export default function LoginPage() {
               무대 위의 감동이<br />당신을 기다립니다
             </p>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              {['콘서트', '뮤지컬', '연극', '무용'].map(tag => (
+              {['콘서트', '뮤지컬', '연극'].map(tag => (
                 <span key={tag} style={{ background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)', color: '#fff', fontSize: '0.75rem', fontWeight: 600, padding: '0.3rem 0.75rem', borderRadius: 100, border: '1px solid rgba(255,255,255,0.25)' }}>
                   {tag}
                 </span>

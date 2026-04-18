@@ -188,7 +188,7 @@ export default function HomePage() {
                 </div>
                 <div style={{ padding: '0.75rem', flex: 1, minWidth: 0 }}>
                   <span className="badge badge-navy" style={{ marginBottom: '0.35rem', fontSize: '0.63rem' }}>
-                    {({ CONCERT:'콘서트', MUSICAL:'뮤지컬', THEATER:'연극', DANCE:'무용' } as Record<string, string>)[ev.category] || ev.category}
+                    {({ CONCERT:'콘서트', MUSICAL:'뮤지컬', THEATER:'연극' } as Record<string, string>)[ev.category] || ev.category}
                   </span>
                   <p style={{ fontSize: '0.87rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.2rem', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{ev.title}</p>
                   <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{ev.venue?.name}</p>
