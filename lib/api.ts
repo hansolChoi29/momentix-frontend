@@ -36,10 +36,6 @@ api.interceptors.response.use(
   }
 );
 
-export const authApi = {
-  signIn: (body: object) => api.post('/auth/sign-in', body),
-  signOut: () => api.post('/auth/sign-out'),
-};
 
 export const eventApi = {
   list: (params?: object) => api.get('/events', { params }),
@@ -69,4 +65,11 @@ export const ticketApi = {
 export const userApi = {
   me: () => api.get('/users/me'),
   update: (body: object) => api.put('/users/me', body),
+};
+
+export const authApi = {
+  signIn: (body: object) => api.post('/auth/sign-in', body),
+  signOut: () => api.post('/auth/sign-out'),
+  signUp: (email: string, body: object) =>
+    api.post('/auth/sign-up', { email, ...body }),
 };

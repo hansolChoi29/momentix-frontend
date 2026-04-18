@@ -60,7 +60,7 @@ function SearchResults({ keyword }: SearchResultsProps) {
 
     const run = async () => {
       try {
-        const { data } = await eventApi.search({ keyword });
+        const { data } = await eventApi.list({ keyword });
 
         const nextResults =
           data?.content ||
