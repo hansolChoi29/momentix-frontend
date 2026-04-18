@@ -76,7 +76,12 @@ export default function EventDetailPage() {
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'flex-end' }}>
           <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 1.5rem 1.75rem', width: '100%' }}>
             <span className="badge badge-red" style={{ marginBottom: '0.6rem' }}>
-              {{ CONCERT:'콘서트', MUSICAL:'뮤지컬', THEATER:'연극', DANCE:'무용', EXHIBITION:'전시', SPORT:'스포츠' }[event.category] || event.category}
+              {{
+                CONCERT: '콘서트',
+                MUSICAL: '뮤지컬',
+                PLAY: '연극',
+                CLASSIC: '클래식',
+              }[event.category] || event.category}
             </span>
             <h1 style={{ fontSize: 'clamp(1.3rem, 3.5vw, 2.2rem)', fontWeight: 800, color: '#fff', marginBottom: '0.4rem', maxWidth: 680, lineHeight: 1.2 }}>{event.title}</h1>
             <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)' }}>{event.venue?.name} · {event.runningTime}분 · {event.rating}</p>

@@ -12,18 +12,15 @@ const BANNERS = [
 ];
 
 const QUICK_CATS = [
-  { key: 'CONCERT',   label: '콘서트',  emoji: '🎤' },
-  { key: 'MUSICAL',   label: '뮤지컬',  emoji: '🎭' },
-  { key: 'THEATER',   label: '연극',    emoji: '🎬' },
-  { key: 'DANCE',     label: '무용',    emoji: '💃' },
-  { key: 'EXHIBITION',label: '전시',    emoji: '🖼️' },
-  { key: 'SPORT',     label: '스포츠',  emoji: '⚽' },
+  { key: 'CONCERT', label: '콘서트', emoji: '🎤' },
+  { key: 'MUSICAL', label: '뮤지컬', emoji: '🎭' },
+  { key: 'PLAY', label: '연극', emoji: '🎬' },
+  { key: 'CLASSIC', label: '클래식', emoji: '🎼' },
 ];
-
 const MOCK: Event[] = Array.from({ length: 8 }, (_, i) => ({
   eventId: i + 1,
   title: ['2025 IU HEREH WORLD TOUR', '레미제라블 내한공연', '오페라의 유령', '호두까기 인형', 'Coldplay 내한공연', '지킬앤하이드', '베르사유의 장미', '맘마미아'][i],
-  description: '', category: ['CONCERT','MUSICAL','MUSICAL','DANCE','CONCERT','MUSICAL','MUSICAL','MUSICAL'][i] as Event['category'],
+  description: '', category: ['CONCERT','MUSICAL','MUSICAL','CONCERT','MUSICAL','MUSICAL','MUSICAL'][i] as Event['category'],
   status: ['ON_SALE','UPCOMING','ON_SALE','ON_SALE','SOLD_OUT','ON_SALE','UPCOMING','ON_SALE'][i] as Event['status'],
   venue: { venueId: i, name: ['올림픽 주경기장','LG아트센터','블루스퀘어','예술의전당','잠실실내체육관','세종문화회관','국립극장','성남아트센터'][i], address: '서울', capacity: 5000 },
   schedules: [{ scheduleId: i, date: `2025-0${(i%9)+1}-15`, startTime: '19:30', endTime: '21:30' }],
