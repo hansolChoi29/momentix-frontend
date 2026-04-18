@@ -29,8 +29,18 @@ const MOCK: Event[] = Array.from({ length: 8 }, (_, i) => ({
 }));
 
 export default function HomePage() {
+   
+
   const [idx, setIdx] = useState(0);
   const [events, setEvents] = useState<Event[]>(MOCK);
+
+  console.log(
+    events.slice(0, 8).map((ev, i) => ({
+      i,
+      eventId: ev.eventId,
+      title: ev.title,
+    }))
+  );
 
   useEffect(() => {
     const t = setInterval(() => setIdx(i => (i+1) % BANNERS.length), 4500);
