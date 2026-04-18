@@ -19,7 +19,7 @@ const MOCK: Event = {
     { scheduleId:2, date:'2025-08-16', startTime:'18:00', endTime:'20:30' },
     { scheduleId:3, date:'2025-08-17', startTime:'17:00', endTime:'19:30' },
   ],
-  minPrice:110000, maxPrice:220000, runningTime:150,
+  minPrice:100, maxPrice:100, runningTime:150,
   rating:'전체 관람가', hostName:'카카오엔터테인먼트', tags:['아이유','IU','콘서트'],
 };
 
@@ -36,13 +36,41 @@ export default function EventDetailPage() {
   const [loading, setLoading] = useState(false);
   const img = event.posterUrl || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800&q=90';
 
-  useEffect(() => { eventApi.detail(Number(id)).then(({ data }) => { if (data) setEvent(data); }).catch(() => {}); }, [id]);
 
-  const pickSched = async (s: EventSchedule) => {
-    setSelSched(s); setStep('seat');
-    try { const { data } = await eventApi.seats(event.eventId, s.scheduleId); setGrades(data || []); } catch {}
-  };
 
+const pickSched = async (s: EventSchedule) => {
+  setSelSched(s);
+  setStep('seat');
+
+  setGrades([
+    {
+      grade: 'R',
+      color: '#FF4B6E',
+      price: 220000,
+      seats: Array.from({ length: 20 }, (_, i) => ({
+        seatId: i + 1,
+        seatNumber: String(i + 1),
+        row: 'R',
+        grade: 'R',
+        price: 220000,
+        status: i % 5 === 0 ? 'RESERVED' : 'AVAILABLE',
+      })),
+    },
+    {
+      grade: 'S',
+      color: '#5B8CFF',
+      price: 165000,
+      seats: Array.from({ length: 20 }, (_, i) => ({
+        seatId: i + 101,
+        seatNumber: String(i + 1),
+        row: 'S',
+        grade: 'S',
+        price: 165000,
+        status: i % 6 === 0 ? 'RESERVED' : 'AVAILABLE',
+      })),
+    },
+  ]);
+};
 
 const handleReserve = async () => {
   if (!isAuthenticated) {
@@ -52,24 +80,12 @@ const handleReserve = async () => {
 
   if (!selSched || !selSeats.length) return;
 
-  setLoading(true);
+  // 지금은 백엔드 reservation API 구조가 프론트와 안 맞으니,
+  // UX 확인용으로 바로 결제 페이지 이동
+  const fakeReservationId = 9999;
+  const amount = event.minPrice * selSeats.length;
 
-  try {
-    await reservationApi.create({
-      eventId: event.eventId,
-      scheduleId: selSched.scheduleId,
-      seatIds: selSeats,
-    });
-    setStep('done');
-  } catch (e: unknown) {
-    if (axios.isAxiosError<{ message?: string }>(e)) {
-      alert(e.response?.data?.message || '예매에 실패했습니다.');
-    } else {
-      alert('예매에 실패했습니다.');
-    }
-  } finally {
-    setLoading(false);
-  }
+  router.push(`/payment/${fakeReservationId}?amount=${amount}`);
 };
 
   if (step === 'done') return (
@@ -196,7 +212,18 @@ const handleReserve = async () => {
                     <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{new Date(selSched.date).toLocaleDateString('ko-KR')} {selSched.startTime}</p>
                   </div>
                 </div>
-                <SeatMap grades={grades} selectedSeats={selSeats} onSeatToggle={id => setSelSeats(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])} maxSelect={4} />
+                <SeatMap
+                  grades={grades}
+                  selectedSeats={selSeats}
+                  onSeatToggle={(seatId) =>
+                    setSelSeats((prev) =>
+                      prev.includes(seatId)
+                        ? prev.filter((x) => x !== seatId)
+                        : [...prev, seatId]
+                    )
+                  }
+                  maxSelect={4}
+                />
               </div>
             )}
           </div>

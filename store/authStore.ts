@@ -1,12 +1,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { User } from '@/types';
 
 interface AuthState {
-  user: User | null;
+  user: unknown | null;
   accessToken: string | null;
   isAuthenticated: boolean;
-  setAuth: (user: User, token: string) => void;
+  setAuth: (user: unknown | null, token: string) => void;
   clearAuth: () => void;
 }
 
@@ -25,6 +24,13 @@ export const useAuthStore = create<AuthState>()(
         set({ user: null, accessToken: null, isAuthenticated: false });
       },
     }),
-    { name: 'momentix-auth', partialize: (s) => ({ user: s.user, isAuthenticated: s.isAuthenticated }) }
+    {
+      name: 'momentix-auth',
+      partialize: (s) => ({
+        user: s.user,
+        accessToken: s.accessToken,
+        isAuthenticated: s.isAuthenticated,
+      }),
+    }
   )
 );
