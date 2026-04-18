@@ -4,7 +4,7 @@ import axios from 'axios';
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { authApi, userApi } from '@/lib/api';
+import { authApi } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 
 export default function LoginPage() {
@@ -15,27 +15,35 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setIsLoading(true);
-    try {
-      const { data } = await authApi.signIn(form);
-      const token = data.accessToken || data.token;
-      if (token) {
-        const { data: user } = await userApi.me();
-        setAuth(user, token);
-      }
-      router.push('/');
-    } catch (err: unknown) {
-      if (axios.isAxiosError<{ message?: string }>(err)) {
-        setError(err.response?.data?.message || '이메일 또는 비밀번호를 확인해주세요.');
-      } else {
-        setError('이메일 또는 비밀번호를 확인해주세요.');
-      }
-    } finally {
-      setIsLoading(false);
+  e.preventDefault();
+  setError('');
+  setIsLoading(true);
+
+  try {
+    const response = await authApi.signIn({
+  username: form.username,
+  password: form.password,
+});
+
+    const token =
+      response.data?.data ??
+      response.data?.accessToken ??
+      response.data?.token;
+
+    if (!token) throw new Error('토큰 없음');
+
+    setAuth(null, token);
+    router.push('/');
+  } catch (err: unknown) {
+    if (axios.isAxiosError<{ message?: string }>(err)) {
+      setError(err.response?.data?.message || '이메일 또는 비밀번호를 확인해주세요.');
+    } else {
+      setError('이메일 또는 비밀번호를 확인해주세요.');
     }
-  };
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex' }}>

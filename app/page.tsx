@@ -29,18 +29,8 @@ const MOCK: Event[] = Array.from({ length: 8 }, (_, i) => ({
 }));
 
 export default function HomePage() {
-   
-
   const [idx, setIdx] = useState(0);
   const [events, setEvents] = useState<Event[]>(MOCK);
-
-  console.log(
-    events.slice(0, 8).map((ev, i) => ({
-      i,
-      eventId: ev.eventId,
-      title: ev.title,
-    }))
-  );
 
   useEffect(() => {
     const t = setInterval(() => setIdx(i => (i+1) % BANNERS.length), 4500);
@@ -152,10 +142,11 @@ export default function HomePage() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
           {events.slice(0, 8).map((ev, i) => (
-            <div key={ev.eventId} className={`anim-up d${Math.min(i+1,8)}`}>
-              <EventCard event={ev} index={i} />
-            </div>
-          ))}
+          <div key={`${ev.eventId ?? 'noid'}-${i}`} className={`anim-up d${Math.min(i + 1, 8)}`}>
+            <EventCard event={ev} index={i} />
+          </div>
+        ))}
+          
         </div>
         <style>{`@media(max-width:1024px){.hot-grid{grid-template-columns:repeat(3,1fr)!important}}@media(max-width:640px){.hot-grid{grid-template-columns:repeat(2,1fr)!important}}`}</style>
       </section>

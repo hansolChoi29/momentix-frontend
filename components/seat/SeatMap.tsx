@@ -71,7 +71,7 @@ export default function SeatMap({ grades, selectedSeats, onSeatToggle, maxSelect
             }}
           >
             <span className="w-2 h-2 rounded-full" style={{ background: GRADE_COLORS[g.grade] || g.color }} />
-            {g.grade}석 {g.price.toLocaleString()}원
+            {g.grade}석 {(g.price ?? 0).toLocaleString()}원
           </button>
         ))}
       </div>

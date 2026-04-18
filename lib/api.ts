@@ -9,9 +9,9 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('accessToken');
-    if (token) config.headers.Authorization = `Bearer ${token}`;
+  const token = localStorage.getItem('accessToken');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
@@ -37,18 +37,15 @@ api.interceptors.response.use(
 );
 
 export const authApi = {
-  signUp: (email: string, body: object) => api.post('/auth/signup', body, { headers: { 'X-User-Email': email } }),
-  signIn: (body: object) => api.post('/auth/signin', body),
-  signOut: () => api.post('/auth/signout'),
+  signIn: (body: object) => api.post('/auth/sign-in', body),
+  signOut: () => api.post('/auth/sign-out'),
 };
 
 export const eventApi = {
   list: (params?: object) => api.get('/events', { params }),
-  detail: (id: number) => api.get(`/events/${id}`),
-  search: (params: object) => api.get('/search', { params }),
-  autocomplete: (keyword: string) => api.get('/search/autocomplete', { params: { keyword } }),
-  seats: (eventId: number, scheduleId: number) =>
-    api.get(`/events/${eventId}/schedules/${scheduleId}/seats`),
+  detail: (eventId: number, placeId: number) => api.get(`/events/${eventId}/${placeId}`),
+  seats: (eventId: number, placeId: number, eventTimeId: number, params?: object) =>
+    api.get(`/events/${eventId}/${placeId}/event-time/${eventTimeId}`, { params }),
 };
 
 export const reservationApi = {
@@ -58,8 +55,10 @@ export const reservationApi = {
 };
 
 export const paymentApi = {
-  pay: (body: object) => api.post('/payments', body),
-  myHistory: () => api.get('/payments/my'),
+  create: (body: object) => api.post('/payment', body),
+  confirm: (paymentId: number, body: object) => api.post(`/payment/${paymentId}/confirm`, body),
+  getOne: (paymentId: number) => api.get(`/payment/${paymentId}`),
+  cancel: (paymentId: number) => api.post(`/payment/${paymentId}/cancel`),
 };
 
 export const ticketApi = {
