@@ -21,6 +21,30 @@ const SORTS = [
   { key: 'price_desc', label: '가격 높은순' },
 ];
 
+type EventListItem = {
+  eventId?: number;
+  id?: number;
+  title?: string;
+  eventTitle?: string;
+  description?: string;
+  category?: Event['category'];
+  eventCategoryType?: Event['category'];
+  status?: Event['status'];
+  posterUrl?: string;
+  venue?: {
+    venueId?: number;
+    name?: string;
+    address?: string;
+    capacity?: number;
+  };
+  placeId?: number;
+  placeName?: string;
+  placeAddress?: string;
+  schedules?: Event['schedules'];
+  minPrice?: number;
+  maxPrice?: number;
+};
+
 export default function EventsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -48,29 +72,36 @@ export default function EventsContent() {
         });
 
         const responseData = response?.data;
-        const rawList = Array.isArray(responseData)
+        const rawList: unknown[] = Array.isArray(responseData)
           ? responseData
           : Array.isArray(responseData?.content)
             ? responseData.content
             : [];
 
-        const mappedEvents: Event[] = rawList.map((item: any, index: number) => ({
-          eventId: item.eventId ?? item.id ?? index + 1,
-          title: item.title ?? item.eventTitle ?? '',
-          description: item.description ?? '',
-          category: item.category ?? item.eventCategoryType ?? 'CONCERT',
-          status: item.status ?? 'ON_SALE',
-          posterUrl: item.posterUrl,
-          venue: {
-            venueId: item.venue?.venueId ?? item.placeId ?? index + 1,
-            name: item.venue?.name ?? item.placeName ?? '',
-            address: item.venue?.address ?? item.placeAddress ?? '',
-            capacity: item.venue?.capacity ?? 0,
-          },
-          schedules: item.schedules ?? [],
-          minPrice: item.minPrice ?? 0,
-          maxPrice: item.maxPrice ?? 0,
-        }));
+        const mappedEvents: Event[] = rawList.map((item, index) => {
+          const eventItem: EventListItem =
+            typeof item === 'object' && item !== null
+              ? (item as EventListItem)
+              : {};
+
+          return {
+            eventId: eventItem.eventId ?? eventItem.id ?? index + 1,
+            title: eventItem.title ?? eventItem.eventTitle ?? '',
+            description: eventItem.description ?? '',
+            category: eventItem.category ?? eventItem.eventCategoryType ?? 'CONCERT',
+            status: eventItem.status ?? 'ON_SALE',
+            posterUrl: eventItem.posterUrl,
+            venue: {
+              venueId: eventItem.venue?.venueId ?? eventItem.placeId ?? index + 1,
+              name: eventItem.venue?.name ?? eventItem.placeName ?? '',
+              address: eventItem.venue?.address ?? eventItem.placeAddress ?? '',
+              capacity: eventItem.venue?.capacity ?? 0,
+            },
+            schedules: eventItem.schedules ?? [],
+            minPrice: eventItem.minPrice ?? 0,
+            maxPrice: eventItem.maxPrice ?? 0,
+          };
+        });
 
         if (!ignore) {
           setEvents(mappedEvents);
@@ -141,6 +172,7 @@ export default function EventsContent() {
               return (
                 <button
                   key={c.key}
+                  type="button"
                   onClick={() => setFilter('category', c.key)}
                   style={{
                     padding: '0.4rem 0.9rem',
@@ -199,6 +231,7 @@ export default function EventsContent() {
             {Array.from({ length: totalPages }).map((_, i) => (
               <button
                 key={i}
+                type="button"
                 onClick={() => movePage(i)}
                 style={{
                   width: 36,

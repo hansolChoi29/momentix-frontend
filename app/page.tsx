@@ -17,6 +17,7 @@ const QUICK_CATS = [
   { key: 'PLAY', label: '연극', emoji: '🎬' },
   { key: 'CLASSIC', label: '클래식', emoji: '🎼' },
 ];
+
 const MOCK: Event[] = Array.from({ length: 8 }, (_, i) => ({
   eventId: i + 1,
   title: ['2025 IU HEREH WORLD TOUR', '레미제라블 내한공연', '오페라의 유령', '호두까기 인형', 'Coldplay 내한공연', '지킬앤하이드', '베르사유의 장미', '맘마미아'][i],
@@ -80,7 +81,23 @@ export default function HomePage() {
         {/* 슬라이드 도트 */}
         <div style={{ position: 'absolute', bottom: 20, right: '1.5rem', display: 'flex', gap: 6 }}>
           {BANNERS.map((_, i) => (
-            <button key={i} onClick={() => setIdx(i)} style={{ width: i === idx ? 24 : 7, height: 7, borderRadius: 4, background: i === idx ? '#fff' : 'rgba(255,255,255,0.4)', border: 'none', cursor: 'pointer', padding: 0, transition: 'all 0.3s' }} />
+           <button
+              key={i}
+              type="button"
+              aria-label={`${i + 1}번 배너 보기`}
+              title={`${i + 1}번 배너 보기`}
+              onClick={() => setIdx(i)}
+              style={{
+                width: i === idx ? 24 : 7,
+                height: 7,
+                borderRadius: 4,
+                background: i === idx ? '#fff' : 'rgba(255,255,255,0.4)',
+                border: 'none',
+                cursor: 'pointer',
+                padding: 0,
+                transition: 'all 0.3s',
+              }}
+            />
           ))}
         </div>
 

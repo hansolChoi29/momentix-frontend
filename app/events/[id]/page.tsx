@@ -1,4 +1,5 @@
 'use client';
+import axios from 'axios';
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -42,14 +43,34 @@ export default function EventDetailPage() {
     try { const { data } = await eventApi.seats(event.eventId, s.scheduleId); setGrades(data || []); } catch {}
   };
 
-  const handleReserve = async () => {
-    if (!isAuthenticated) { router.push('/login'); return; }
-    if (!selSched || !selSeats.length) return;
-    setLoading(true);
-    try { await reservationApi.create({ eventId: event.eventId, scheduleId: selSched.scheduleId, seatIds: selSeats }); setStep('done'); }
-    catch (e: any) { alert(e.response?.data?.message || '예매에 실패했습니다.'); }
+
+const handleReserve = async () => {
+  if (!isAuthenticated) {
+    router.push('/login');
+    return;
+  }
+
+  if (!selSched || !selSeats.length) return;
+
+  setLoading(true);
+
+  try {
+    await reservationApi.create({
+      eventId: event.eventId,
+      scheduleId: selSched.scheduleId,
+      seatIds: selSeats,
+    });
+    setStep('done');
+  } catch (e: unknown) {
+    if (axios.isAxiosError<{ message?: string }>(e)) {
+      alert(e.response?.data?.message || '예매에 실패했습니다.');
+    } else {
+      alert('예매에 실패했습니다.');
+    }
+  } finally {
     setLoading(false);
-  };
+  }
+};
 
   if (step === 'done') return (
     <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
@@ -141,8 +162,34 @@ export default function EventDetailPage() {
             {step === 'seat' && selSched && (
               <div className="card" style={{ padding: '1.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.25rem' }}>
-                  <button onClick={() => { setStep('info'); setSelSeats([]); setSelSched(null); }} style={{ background: 'var(--gray-100)', border: 'none', borderRadius: 6, cursor: 'pointer', padding: '0.4rem', display: 'flex' }}>
-                    <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M15.75 19.5L8.25 12l7.5-7.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  <button
+                    type="button"
+                    aria-label="뒤로가기"
+                    onClick={() => {
+                      setStep('info');
+                      setSelSeats([]);
+                      setSelSched(null);
+                    }}
+                    style={{
+                      background: 'var(--gray-100)',
+                      border: 'none',
+                      borderRadius: 6,
+                      cursor: 'pointer',
+                      padding: '0.4rem',
+                      display: 'flex'
+                    }}
+                  >
+                    <svg
+                      width="18"
+                      height="18"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path d="M15.75 19.5L8.25 12l7.5-7.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
                   </button>
                   <div>
                     <p style={{ fontWeight: 700, fontSize: '1rem' }}>좌석 선택</p>

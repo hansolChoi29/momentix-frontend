@@ -1,0 +1,74 @@
+.search-page {
+  min-height: 100vh;
+  padding-top: 4rem;
+}
+
+.search-header {
+  background: var(--charcoal);
+  border-bottom: 1px solid var(--muted);
+}
+
+.search-kicker {
+  color: var(--gold);
+  letter-spacing: 0.3em;
+}
+
+.search-input {
+  font-size: 1.1rem;
+  border-right: none;
+}
+
+.search-submit-btn {
+  border-radius: 0;
+}
+
+.search-empty-icon {
+  color: var(--muted);
+}
+
+.search-empty-title {
+  color: var(--text-dim);
+}
+
+.search-empty-desc {
+  color: var(--text-muted);
+}
+
+.search-tag-button {
+  font-size: 0.75rem;
+  padding: 0.4rem 0.8rem;
+}
+
+.search-result-summary {
+  color: var(--text-muted);
+}
+
+.search-result-keyword {
+  color: var(--gold);
+}
+
+.search-result-count {
+  color: var(--text-main);
+}
+
+.search-poster-wrap {
+  width: 70px;
+  height: 90px;
+}
+
+.search-result-title {
+  color: var(--text-bright);
+}
+
+.search-result-meta {
+  color: var(--text-muted);
+}
+
+.search-price-label {
+  color: var(--text-muted);
+}
+
+.search-price-value {
+  color: var(--gold);
+  font-size: 1rem;
+}

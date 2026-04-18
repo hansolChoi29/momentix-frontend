@@ -1,4 +1,4 @@
-export type EventCategory = 'CONCERT' | 'THEATER' | 'MUSICAL' | 'DANCE' | 'EXHIBITION' | 'SPORT';
+export type EventCategory = 'CLASSIC' | 'CONCERT' | 'MUSICAL' | 'PLAY';
 export type EventStatus = 'ON_SALE' | 'SOLD_OUT' | 'UPCOMING' | 'ENDED' | 'CANCELLED';
 export type SeatStatus = 'AVAILABLE' | 'RESERVED' | 'BOOKED';
 export type TicketStatus = 'ISSUED' | 'USED' | 'CANCELLED';
@@ -24,9 +24,7 @@ export interface Venue {
   venueId: number;
   name: string;
   address: string;
-  capacity: number;
-  latitude?: number;
-  longitude?: number;
+  capacity?: number;
 }
 
 export interface Event {

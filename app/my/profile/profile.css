@@ -1,0 +1,84 @@
+.profile-page {
+  min-height: 100vh;
+  padding-top: 4rem;
+}
+
+.profile-header {
+  background: var(--charcoal);
+  border-bottom: 1px solid var(--muted);
+}
+
+.profile-header-kicker {
+  color: var(--gold);
+  letter-spacing: 0.3em;
+}
+
+.profile-header-title {
+  color: var(--text-bright);
+}
+
+.profile-user-card {
+  background: var(--surface);
+  border: 1px solid var(--muted);
+}
+
+.profile-avatar {
+  background: var(--gold-dim);
+  color: var(--obsidian);
+}
+
+.profile-user-name {
+  color: var(--text-bright);
+}
+
+.profile-user-email {
+  color: var(--text-muted);
+}
+
+.profile-menu-button {
+  background: var(--surface);
+  border: 1px solid var(--muted);
+}
+
+.profile-menu-button:hover {
+  border-color: var(--gold-dim);
+}
+
+.profile-menu-icon {
+  color: var(--gold-dim);
+}
+
+.profile-menu-label {
+  color: var(--text-main);
+}
+
+.profile-menu-desc {
+  color: var(--text-muted);
+}
+
+.profile-panel {
+  background: var(--surface);
+  border: 1px solid var(--muted);
+}
+
+.profile-panel-header {
+  border-bottom: 1px solid var(--muted);
+}
+
+.profile-panel-title {
+  color: var(--text-bright);
+}
+
+.profile-label {
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+}
+
+.profile-saved-text {
+  color: var(--teal-bright);
+}
+
+.profile-input-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
