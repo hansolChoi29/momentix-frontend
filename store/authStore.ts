@@ -1,11 +1,17 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+interface AuthUser {
+  email: string;
+  nickname: string;
+  phone?: string;
+}
+
 interface AuthState {
-  user: unknown | null;
+  user: AuthUser | null;
   accessToken: string | null;
   isAuthenticated: boolean;
-  setAuth: (user: unknown | null, token: string) => void;
+  setAuth: (user: AuthUser | null, token: string) => void;
   clearAuth: () => void;
 }
 
