@@ -7,44 +7,84 @@ import { useRouter } from 'next/navigation';
 import { authApi } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 
+const DEMO_ACCOUNT = {
+  email: 'demo@momentix.com',
+  password: '1234qwer!',
+  nickname: '데모사용자',
+};
+
 export default function LoginPage() {
   const router = useRouter();
   const { setAuth } = useAuthStore();
-  const [form, setForm] = useState({ username: '', password: '' });
+
+  // 서버용
+  // const [form, setForm] = useState({ username: '', password: '' });
+
+   const [form, setForm] = useState({
+    username: DEMO_ACCOUNT.email,
+    password: DEMO_ACCOUNT.password,
+  });
+
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  const { mockLogin } = useAuthStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   setError('');
   setIsLoading(true);
 
-  try {
-    const response = await authApi.signIn({
-  username: form.username,
-  password: form.password,
-});
+  // 서버용
+//   try {
+//     const response = await authApi.signIn({
+//   username: form.username,
+//   password: form.password,
+// });
 
-    const token =
-      response.data?.data ??
-      response.data?.accessToken ??
-      response.data?.token;
+//     const token =
+//       response.data?.data ??
+//       response.data?.accessToken ??
+//       response.data?.token;
 
-    if (!token) throw new Error('토큰 없음');
+//     if (!token) throw new Error('토큰 없음');
 
-    setAuth(null, token);
-    router.push('/');
-  } catch (err: unknown) {
-    if (axios.isAxiosError<{ message?: string }>(err)) {
-      setError(err.response?.data?.message || '이메일 또는 비밀번호를 확인해주세요.');
-    } else {
-      setError('이메일 또는 비밀번호를 확인해주세요.');
+//     setAuth(null, token);
+//     router.push('/');
+//   } catch (err: unknown) {
+//     if (axios.isAxiosError<{ message?: string }>(err)) {
+//       setError(err.response?.data?.message || '이메일 또는 비밀번호를 확인해주세요.');
+//     } else {
+//       setError('이메일 또는 비밀번호를 확인해주세요.');
+//     }
+//   } finally {
+//     setIsLoading(false);
+//   }
+// };
+
+try {
+      if (
+        form.username !== DEMO_ACCOUNT.email ||
+        form.password !== DEMO_ACCOUNT.password
+      ) {
+        setError('데모 계정 정보를 확인해주세요.');
+        return;
+      }
+
+      setAuth(
+        {
+          email: DEMO_ACCOUNT.email,
+          nickname: DEMO_ACCOUNT.nickname,
+        },
+        'demo-access-token'
+      );
+
+      router.push('/');
+    } finally {
+      setIsLoading(false);
     }
-  } finally {
-    setIsLoading(false);
-  }
-};
-
+  };
+  
   return (
     <div style={{ minHeight: '100vh', display: 'flex' }}>
       {/* ── 좌측 이미지 패널 ── */}
@@ -146,6 +186,29 @@ export default function LoginPage() {
                 </span>
               ) : '로그인'}
             </button>
+            {process.env.NEXT_PUBLIC_MOCK_AUTH === 'true' && (
+              <button
+                type="button"
+                onClick={() => {
+                  mockLogin();
+                  router.push('/');
+                }}
+                className="btn-primary"
+                style={{
+                  width: '100%',
+                  justifyContent: 'center',
+                  padding: '0.9rem',
+                  fontSize: '0.95rem',
+                  marginTop: '0.75rem',
+                  background: '#fff',
+                  color: 'var(--text-main)',
+                  border: '1.5px solid var(--gray-300)',
+                  boxShadow: 'none',
+                }}
+              >
+                임시 로그인
+              </button>
+            )}
           </form>
           <div className="flex justify-between gap-4">
             <p
@@ -227,14 +290,6 @@ export default function LoginPage() {
               카카오로 로그인
             </button>
           </div>
-
-          <p style={{ textAlign: 'center', fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '1.75rem' }}>
-            로그인하면{' '}
-            <span style={{ color: 'var(--primary)', cursor: 'pointer', fontWeight: 500 }}>이용약관</span>
-            {' '}및{' '}
-            <span style={{ color: 'var(--primary)', cursor: 'pointer', fontWeight: 500 }}>개인정보처리방침</span>
-            에 동의하는 것으로 간주합니다.
-          </p>
         </div>
       </div>
 

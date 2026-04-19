@@ -97,7 +97,7 @@ export default function SeatMap({ grades, selectedSeats, onSeatToggle, maxSelect
                   <div key={ri} className="flex gap-1 justify-center">
                     {row.map(seat => {
                       const isSelected = selectedSeats.includes(seat.seatId);
-                      const isBooked = seat.status === 'BOOKED' || seat.status === 'RESERVED';
+                      const isBooked = seat.status !== 'AVAILABLE';
                       const isMaxed = selectedSeats.length >= maxSelect && !isSelected;
                       return (
                         <button

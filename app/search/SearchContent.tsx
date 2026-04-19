@@ -43,8 +43,7 @@ const MOCK_RESULTS: SearchResult[] = [
 const CATEGORY_LABEL: Record<string, string> = {
   CONCERT: '콘서트',
   MUSICAL: '뮤지컬',
-  PLAY: '연극',
-  CLASSIC: '클래식',
+  PLAY: '연극'
 };
 
 type SearchResultsProps = {
@@ -245,7 +244,7 @@ export default function SearchContent() {
             </p>
 
             <div className="flex gap-2 justify-center flex-wrap mt-8">
-              {['IU', '뮤지컬', '올림픽 주경기장', '클래식', '콘서트', '오페라'].map(
+              {['IU', '뮤지컬', '올림픽 주경기장', '콘서트', '오페라'].map(
                 (tag) => (
                   <button
                     key={tag}

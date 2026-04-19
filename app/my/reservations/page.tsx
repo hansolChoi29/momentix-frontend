@@ -1,114 +1,149 @@
 'use client';
-import { useEffect, useState } from 'react';
+
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { reservationApi } from '@/lib/api';
 import { Reservation } from '@/types';
 import { useAuthStore } from '@/store/authStore';
 
-const MOCK_RESERVATIONS: Reservation[] = [
-  {
-    reservationId: 1,
-    event: { eventId: 1, title: '2025 IU HEREH WORLD TOUR IN SEOUL', category: 'CONCERT', status: 'ON_SALE', description: '', venue: { venueId: 1, name: '올림픽 주경기장', address: '서울', capacity: 68000 }, schedules: [], minPrice: 110000, maxPrice: 220000, posterUrl: 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=400&q=80' },
-    schedule: { scheduleId: 1, date: '2025-08-15', startTime: '18:00', endTime: '20:30' },
-    seat: { seatId: 1, seatNumber: 'A12', row: 'A', grade: 'VIP', price: 165000, status: 'BOOKED' },
-    status: 'CONFIRMED', createdAt: '2025-04-10T14:30:00',
-  },
-  {
-    reservationId: 2,
-    event: { eventId: 2, title: '레미제라블 내한공연', category: 'MUSICAL', status: 'UPCOMING', description: '', venue: { venueId: 2, name: 'LG아트센터 서울', address: '서울', capacity: 1200 }, schedules: [], minPrice: 99000, maxPrice: 143000, posterUrl: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&q=80' },
-    schedule: { scheduleId: 2, date: '2025-09-01', startTime: '19:30', endTime: '22:00' },
-    seat: { seatId: 2, seatNumber: 'R7', row: 'R', grade: 'R', price: 132000, status: 'BOOKED' },
-    status: 'PAYMENT_PENDING', createdAt: '2025-04-12T09:20:00',
-  },
-];
-
 const STATUS_INFO: Record<string, { label: string; cls: string }> = {
   CONFIRMED: { label: '결제 완료', cls: 'badge-teal' },
   PAYMENT_PENDING: { label: '결제 대기', cls: 'badge-gold' },
-  CANCELLED: { label: '취소됨', cls: 'badge-crimson' },
+  CANCELLED: { label: '취소 완료', cls: 'badge-crimson' },
 };
 
 export default function MyReservationsPage() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
-  const [reservations, setReservations] = useState<Reservation[]>(MOCK_RESERVATIONS);
-  const [cancelId, setCancelId] = useState<number | null>(null);
+
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated) { router.push('/login'); return; }
-    const fetch = async () => {
+    if (!isAuthenticated) {
+      router.push('/login');
+      return;
+    }
+
+    const fetchReservations = async () => {
+      setIsLoading(true);
       try {
         const { data } = await reservationApi.myList();
-        if (data?.length) setReservations(data);
-      } catch {}
+        const list = Array.isArray(data?.content) ? data.content : Array.isArray(data) ? data : [];
+        setReservations(list);
+      } catch {
+        setReservations([]);
+      } finally {
+        setIsLoading(false);
+      }
     };
-    fetch();
+
+    void fetchReservations();
   }, [isAuthenticated, router]);
 
+  const sortedReservations = useMemo(
+    () => [...reservations].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [reservations]
+  );
+
   const handleCancel = async (id: number) => {
-    if (!confirm('예매를 취소하시겠습니까? 취소 수수료가 발생할 수 있습니다.')) return;
+    if (!confirm('예매를 취소하시겠습니까?')) return;
+
     try {
       await reservationApi.cancel(id);
-      setReservations(prev => prev.map(r => r.reservationId === id ? { ...r, status: 'CANCELLED' } : r));
-    } catch (e: any) {
-      alert(e.response?.data?.message || '취소에 실패했습니다.');
+      setReservations((prev) => prev.map((item) => (item.reservationId === id ? { ...item, status: 'CANCELLED' } : item)));
+    } catch (e: unknown) {
+      const apiError = e as { response?: { data?: { message?: string } } };
+      alert(apiError.response?.data?.message || '예매 취소에 실패했습니다.');
     }
   };
 
   return (
-    <div style={{ minHeight: '100vh', paddingTop: '4rem' }}>
-      <div style={{ background: 'var(--charcoal)', borderBottom: '1px solid var(--muted)' }}>
-        <div className="max-w-5xl mx-auto px-6 py-12">
-          <p className="text-xs tracking-widest mb-2" style={{ color: 'var(--gold)', letterSpacing: '0.3em' }}>MY PAGE</p>
-          <h1 className="font-display text-4xl font-semibold" style={{ color: 'var(--text-bright)' }}>예매 내역</h1>
-        </div>
-      </div>
+    <main
+      style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(180deg, rgba(255,240,243,0.42) 0%, #f7f8fa 34%, #f7f8fa 100%)',
+        paddingTop: '4rem',
+      }}
+    >
+      <section style={{ maxWidth: 1100, margin: '0 auto', padding: '1.8rem 1.3rem 0.2rem' }}>
+        <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: '0.14em' }}>MY PAGE</p>
+        <h1 style={{ marginTop: '0.35rem', fontSize: '2rem', fontWeight: 800, color: 'var(--text-main)' }}>예매 내역</h1>
+        <p style={{ marginTop: '0.4rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+          예매 상태를 확인하고, 공연 전에는 예매 취소를 진행할 수 있습니다.
+        </p>
+      </section>
 
-      <div className="max-w-5xl mx-auto px-6 py-10">
-        {reservations.length === 0 ? (
-          <div className="text-center py-24">
-            <p className="font-display text-5xl mb-4" style={{ color: 'var(--muted)' }}>◇</p>
-            <p className="font-display text-xl mb-2" style={{ color: 'var(--text-dim)' }}>예매 내역이 없습니다</p>
-            <button onClick={() => router.push('/events')} className="btn-outline mt-6">공연 둘러보기</button>
+      <section style={{ maxWidth: 1100, margin: '0 auto', padding: '1rem 1.3rem 2.4rem' }}>
+        {isLoading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="skeleton" style={{ height: 110 }} />
+            ))}
+          </div>
+        ) : sortedReservations.length === 0 ? (
+          <div className="card" style={{ padding: '3rem 1.2rem', textAlign: 'center' }}>
+            <p style={{ color: 'var(--text-sub)', fontSize: '1rem', fontWeight: 700 }}>표시할 예매 내역이 없습니다.</p>
+            <button onClick={() => router.push('/events')} className="btn-outline" style={{ marginTop: '0.9rem' }}>
+              공연 보러가기
+            </button>
           </div>
         ) : (
-          <div className="space-y-4">
-            {reservations.map(r => {
-              const st = STATUS_INFO[r.status] || { label: r.status, cls: '' };
-              const canCancel = r.status !== 'CANCELLED' && new Date(r.schedule.date) > new Date();
+          <div className="space-y-3">
+            {sortedReservations.map((reservation) => {
+              const statusInfo = STATUS_INFO[reservation.status] || { label: reservation.status, cls: '' };
+              const canCancel = reservation.status !== 'CANCELLED' && new Date(reservation.schedule.date) > new Date();
+
               return (
-                <div key={r.reservationId} className="card p-0 overflow-hidden">
-                  <div className="flex gap-0">
-                    <div className="relative overflow-hidden flex-shrink-0" style={{ width: '90px' }}>
-                      <img src={r.event.posterUrl || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=200&q=80'} alt={r.event.title} className="w-full h-full object-cover" style={{ minHeight: '110px' }} />
+                <article
+                  key={reservation.reservationId}
+                  className="card"
+                  style={{ borderRadius: 14, overflow: 'hidden', boxShadow: '0 8px 24px rgba(26,26,62,0.06)' }}
+                >
+                  <div style={{ display: 'grid', gridTemplateColumns: '94px 1fr', minHeight: 110 }}>
+                    <div style={{ position: 'relative', overflow: 'hidden' }}>
+                      <img
+                        src={reservation.event.posterUrl || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=200&q=80'}
+                        alt={reservation.event.title}
+                        className="w-full h-full object-cover"
+                        style={{ minHeight: 110 }}
+                      />
                     </div>
-                    <div className="flex-1 p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <span className={`badge ${st.cls}`}>{st.label}</span>
-                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                          {new Date(r.createdAt).toLocaleDateString('ko-KR')} 예매
-                        </span>
+
+                    <div style={{ padding: '1rem 1.1rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: '0.8rem' }}>
+                        <span className={`badge ${statusInfo.cls}`}>{statusInfo.label}</span>
+                        <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>{new Date(reservation.createdAt).toLocaleDateString('ko-KR')}</span>
                       </div>
-                      <h3 className="font-display font-semibold text-sm mb-1" style={{ color: 'var(--text-bright)' }}>{r.event.title}</h3>
-                      <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
-                        {r.event.venue?.name} · {r.schedule.date} {r.schedule.startTime}
+
+                      <h3 style={{ marginTop: '0.45rem', fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)' }}>{reservation.event.title}</h3>
+                      <p style={{ marginTop: '0.2rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        {reservation.event.venue?.name} · {reservation.schedule.date} {reservation.schedule.startTime}
                       </p>
-                      <div className="flex justify-between items-center mt-3">
-                        <div className="flex items-center gap-4">
-                          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                            {r.seat.grade}석 {r.seat.seatNumber}
+
+                      <div style={{ marginTop: '0.55rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-sub)' }}>
+                            {reservation.seat.grade}석 {reservation.seat.seatNumber}
                           </span>
-                          <span className="font-display font-semibold" style={{ color: 'var(--gold)', fontSize: '0.95rem' }}>
-                            {r.seat.price.toLocaleString()}원
+                          <span style={{ fontSize: '0.92rem', color: 'var(--primary)', fontWeight: 800 }}>
+                            {reservation.seat.price.toLocaleString()}원
                           </span>
                         </div>
+
                         {canCancel && (
                           <button
-                            onClick={() => handleCancel(r.reservationId)}
-                            className="text-xs px-3 py-1.5 transition-all"
-                            style={{ border: '1px solid rgba(139,26,26,0.4)', color: '#E07070', background: 'transparent' }}
-                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(139,26,26,0.15)'; }}
-                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                            onClick={() => handleCancel(reservation.reservationId)}
+                            style={{
+                              border: '1px solid rgba(139,26,26,0.4)',
+                              color: '#E07070',
+                              background: 'transparent',
+                              borderRadius: 8,
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              padding: '0.38rem 0.68rem',
+                            }}
                           >
                             예매 취소
                           </button>
@@ -116,12 +151,12 @@ export default function MyReservationsPage() {
                       </div>
                     </div>
                   </div>
-                </div>
+                </article>
               );
             })}
           </div>
         )}
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

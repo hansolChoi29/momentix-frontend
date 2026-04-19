@@ -1,9 +1,14 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import EventCard from '@/components/event/EventCard';
 import { eventApi } from '@/lib/api';
+import {
+  cacheExternalEvents,
+  normalizeEventCategory,
+  normalizeEventSource,
+} from '@/lib/events';
 import { Event } from '@/types';
 
 const CATS = [
@@ -11,7 +16,6 @@ const CATS = [
   { key: 'CONCERT', label: '콘서트' },
   { key: 'MUSICAL', label: '뮤지컬' },
   { key: 'PLAY', label: '연극' },
-  { key: 'CLASSIC', label: '클래식' },
 ];
 
 const SORTS = [
@@ -29,6 +33,9 @@ type EventListItem = {
   description?: string;
   category?: Event['category'];
   eventCategoryType?: Event['category'];
+  sourceType?: Event['sourceType'] | string;
+  provider?: string;
+  externalEventId?: string;
   status?: Event['status'];
   posterUrl?: string;
   venue?: {
@@ -45,6 +52,14 @@ type EventListItem = {
   maxPrice?: number;
 };
 
+type ExternalEventsResponse = {
+  content?: Event[];
+  totalElements?: number;
+  totalPages?: number;
+  number?: number;
+  size?: number;
+};
+
 export default function EventsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -53,7 +68,8 @@ export default function EventsContent() {
   const [loading, setLoading] = useState(false);
   const [totalPages, setTotalPages] = useState(0);
 
-  const category = searchParams.get('category') || '';
+  const rawCategory = searchParams.get('category') || '';
+  const category = rawCategory ? normalizeEventCategory(rawCategory) : '';
   const sort = searchParams.get('sort') || 'newest';
   const page = Number(searchParams.get('page') || '0');
 
@@ -64,21 +80,30 @@ export default function EventsContent() {
       setLoading(true);
 
       try {
-        const response = await eventApi.list({
-          category: category || undefined,
-          sort,
-          page,
-          size: 16,
-        });
+        const [internalResponse, externalResponse] = await Promise.all([
+          eventApi.list({
+            category: category || undefined,
+            sort,
+            page,
+            size: 16,
+          }),
+          fetch(
+            `/api/external-events?${new URLSearchParams({
+              category: category || '',
+              page: String(page),
+              size: '16',
+            }).toString()}`
+          ),
+        ]);
 
-        const responseData = response?.data;
-        const rawList: unknown[] = Array.isArray(responseData)
-          ? responseData
-          : Array.isArray(responseData?.content)
-            ? responseData.content
+        const internalData = internalResponse?.data;
+        const rawInternalList: unknown[] = Array.isArray(internalData)
+          ? internalData
+          : Array.isArray(internalData?.content)
+            ? internalData.content
             : [];
 
-        const mappedEvents: Event[] = rawList.map((item, index) => {
+        const mappedInternalEvents: Event[] = rawInternalList.map((item, index) => {
           const eventItem: EventListItem =
             typeof item === 'object' && item !== null
               ? (item as EventListItem)
@@ -88,7 +113,10 @@ export default function EventsContent() {
             eventId: eventItem.eventId ?? eventItem.id ?? index + 1,
             title: eventItem.title ?? eventItem.eventTitle ?? '',
             description: eventItem.description ?? '',
-            category: eventItem.category ?? eventItem.eventCategoryType ?? 'CONCERT',
+            category: normalizeEventCategory(eventItem.category ?? eventItem.eventCategoryType),
+            sourceType: normalizeEventSource(eventItem.sourceType),
+            provider: eventItem.provider,
+            externalEventId: eventItem.externalEventId,
             status: eventItem.status ?? 'ON_SALE',
             posterUrl: eventItem.posterUrl,
             venue: {
@@ -103,9 +131,31 @@ export default function EventsContent() {
           };
         });
 
+        const externalData: ExternalEventsResponse = externalResponse.ok
+          ? ((await externalResponse.json()) as ExternalEventsResponse)
+          : {};
+        const externalEvents = Array.isArray(externalData?.content)
+          ? externalData.content
+          : [];
+
+        const deduped = new Map<string, Event>();
+        [...mappedInternalEvents, ...externalEvents].forEach((event) => {
+          const scheduleDate = event.schedules?.[0]?.date ?? '';
+          const key = `${event.title}:${scheduleDate}:${event.venue?.name ?? ''}`;
+          if (!deduped.has(key)) {
+            deduped.set(key, event);
+          }
+        });
+
+        const mergedEvents = Array.from(deduped.values());
+        const filteredByCategory = category
+          ? mergedEvents.filter((event) => event.category === category)
+          : mergedEvents;
+
         if (!ignore) {
-          setEvents(mappedEvents);
-          setTotalPages(responseData?.totalPages ?? 0);
+          cacheExternalEvents(mergedEvents);
+          setEvents(filteredByCategory);
+          setTotalPages(internalData?.totalPages ?? 0);
         }
       } catch {
         if (!ignore) {
@@ -119,7 +169,7 @@ export default function EventsContent() {
       }
     };
 
-    run();
+    void run();
 
     return () => {
       ignore = true;
@@ -144,9 +194,17 @@ export default function EventsContent() {
 
   return (
     <div style={{ minHeight: '100vh' }}>
-      <div style={{ background: '#fff', borderBottom: '1px solid var(--gray-200)', padding: '1.25rem 0' }}>
+      <div
+        style={{
+          background: '#fff',
+          borderBottom: '1px solid var(--gray-200)',
+          padding: '1.25rem 0',
+        }}
+      >
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 1.5rem' }}>
-          <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-main)' }}>전체 공연</h1>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-main)' }}>
+            전체 공연
+          </h1>
         </div>
       </div>
 
@@ -211,15 +269,15 @@ export default function EventsContent() {
         </p>
 
         {loading ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '1rem' }}>
+          <div className="events-grid">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="skeleton" style={{ paddingBottom: '150%' }} />
+              <div key={i} className="events-grid-item skeleton" style={{ paddingBottom: '150%' }} />
             ))}
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '1rem' }}>
+          <div className="events-grid">
             {events.map((ev, i) => (
-              <div key={ev.eventId} className={`anim-up d${Math.min(i + 1, 8)}`}>
+              <div key={ev.eventId} className={`events-grid-item anim-up d${Math.min(i + 1, 8)}`}>
                 <EventCard event={ev} index={i} />
               </div>
             ))}
@@ -227,7 +285,14 @@ export default function EventsContent() {
         )}
 
         {totalPages > 1 && (
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '0.35rem', marginTop: '2.5rem' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '0.35rem',
+              marginTop: '2.5rem',
+            }}
+          >
             {Array.from({ length: totalPages }).map((_, i) => (
               <button
                 key={i}
@@ -239,7 +304,9 @@ export default function EventsContent() {
                   fontSize: '0.85rem',
                   fontFamily: 'inherit',
                   background: page === i ? 'var(--primary)' : '#fff',
-                  border: `1px solid ${page === i ? 'var(--primary)' : 'var(--gray-300)'}`,
+                  border: `1px solid ${
+                    page === i ? 'var(--primary)' : 'var(--gray-300)'
+                  }`,
                   borderRadius: 6,
                   color: page === i ? '#fff' : 'var(--text-sub)',
                   fontWeight: page === i ? 700 : 400,
@@ -254,8 +321,42 @@ export default function EventsContent() {
       </div>
 
       <style>{`
-        @media(max-width:1024px){div[style*="repeat(4,1fr)"]{grid-template-columns:repeat(3,1fr)!important}}
-        @media(max-width:640px){div[style*="repeat(4,1fr)"]{grid-template-columns:repeat(2,1fr)!important}}
+        .events-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 1rem;
+          align-items: stretch;
+        }
+        .events-grid-item {
+          min-width: 0;
+        }
+
+        @media (max-width: 1024px) {
+          .events-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
+        }
+
+        @media (max-width: 640px) {
+          .events-grid {
+            display: flex;
+            overflow-x: auto;
+            gap: 0.75rem;
+            padding-bottom: 0.35rem;
+            scroll-snap-type: x mandatory;
+          }
+          .events-grid::-webkit-scrollbar {
+            height: 5px;
+          }
+          .events-grid::-webkit-scrollbar-thumb {
+            background: var(--gray-300);
+            border-radius: 100px;
+          }
+          .events-grid-item {
+            flex: 0 0 66%;
+            scroll-snap-align: start;
+          }
+        }
       `}</style>
     </div>
   );
