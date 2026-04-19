@@ -257,7 +257,10 @@ try {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
             <button
               type="button"
-              onClick={() => { window.location.href = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/oauth2/authorization/naver`; }}
+              onClick={() => {
+                const apiBase = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || window.location.origin;
+                window.location.href = `${apiBase}/oauth2/authorization/naver`;
+              }}
               style={{
                 width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem',
                 padding: '0.8rem', borderRadius: 8, border: 'none', cursor: 'pointer',

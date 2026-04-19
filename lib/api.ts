@@ -1,6 +1,16 @@
 import axios from 'axios';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/$/, '');
+const isBrowser = typeof window !== 'undefined';
+const browserHost = isBrowser ? window.location.hostname : '';
+const isLocalRuntime = browserHost === 'localhost' || browserHost === '127.0.0.1';
+const BASE_URL = configuredApiUrl || (isLocalRuntime ? 'http://localhost:8080' : '');
+
+if (isBrowser && !configuredApiUrl && !isLocalRuntime) {
+  console.warn(
+    '[api] NEXT_PUBLIC_API_URL is not set. API calls will use the current origin.'
+  );
+}
 
 export const api = axios.create({
   baseURL: BASE_URL,
@@ -9,6 +19,7 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
+  if (typeof window === 'undefined') return config;
   const token = localStorage.getItem('accessToken');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;

@@ -1,4 +1,5 @@
 ﻿'use client';
+
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import EventCard from '@/components/event/EventCard';
@@ -66,7 +67,7 @@ export default function HomePage() {
   const [events, setEvents] = useState<Event[]>(MOCK);
 
   useEffect(() => {
-    const t = setInterval(() => setIdx(i => (i+1) % BANNERS.length), 4500);
+    const t = setInterval(() => setIdx((i) => (i + 1) % BANNERS.length), 4500);
     return () => clearInterval(t);
   }, []);
 
@@ -83,7 +84,6 @@ export default function HomePage() {
 
   return (
     <div>
-      {/* ?? 硫붿씤 諛곕꼫 ?? */}
       <section style={{ position: 'relative', height: 480, overflow: 'hidden', background: '#000' }}>
         {BANNERS.map((s, i) => (
           <div key={i} style={{ position: 'absolute', inset: 0, opacity: i === idx ? 1 : 0, transition: 'opacity 0.9s ease' }}>
@@ -94,36 +94,67 @@ export default function HomePage() {
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center' }}>
           <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 1.5rem', width: '100%' }}>
             <div key={idx} className="anim-up">
-              <span style={{
-                display: 'inline-block', background: 'var(--primary)', color: '#fff',
-                fontSize: '0.72rem', fontWeight: 700, padding: '0.25rem 0.75rem',
-                borderRadius: 100, letterSpacing: '0.05em', marginBottom: '0.85rem',
-              }}>{b.badge}</span>
+              <span
+                style={{
+                  display: 'inline-block',
+                  background: 'var(--primary)',
+                  color: '#fff',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  padding: '0.25rem 0.75rem',
+                  borderRadius: 100,
+                  letterSpacing: '0.05em',
+                  marginBottom: '0.85rem',
+                }}
+              >
+                {b.badge}
+              </span>
               <h1 style={{ fontSize: 'clamp(1.6rem, 4vw, 2.8rem)', fontWeight: 800, color: '#fff', lineHeight: 1.2, marginBottom: '0.6rem', maxWidth: 620 }}>
                 {b.title}
               </h1>
               <p style={{ fontSize: '0.95rem', color: 'rgba(255,255,255,0.8)', marginBottom: '0.3rem' }}>{b.desc}</p>
               <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: '1.75rem' }}>{b.date}</p>
               <div style={{ display: 'flex', gap: '0.6rem' }}>
-                <Link href="/events" className="btn-primary" style={{ fontSize: '0.88rem', padding: '0.7rem 1.8rem' }}>吏湲??덈ℓ?섍린</Link>
-                <Link href="/events" style={{ display: 'inline-flex', alignItems: 'center', background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 6, padding: '0.7rem 1.5rem', fontSize: '0.88rem', fontWeight: 600, textDecoration: 'none', transition: 'background 0.2s' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.28)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.18)'; }}>
-                  ?꾩껜 蹂닿린
+                <Link href="/events" className="btn-primary" style={{ fontSize: '0.88rem', padding: '0.7rem 1.8rem' }}>
+                  지금 예매하기
+                </Link>
+                <Link
+                  href="/events"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    background: 'rgba(255,255,255,0.18)',
+                    backdropFilter: 'blur(8px)',
+                    color: '#fff',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    borderRadius: 6,
+                    padding: '0.7rem 1.5rem',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    textDecoration: 'none',
+                    transition: 'background 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.28)';
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.18)';
+                  }}
+                >
+                  전체 보기
                 </Link>
               </div>
             </div>
           </div>
         </div>
 
-        {/* ?щ씪?대뱶 ?꾪듃 */}
         <div style={{ position: 'absolute', bottom: 20, right: '1.5rem', display: 'flex', gap: 6 }}>
           {BANNERS.map((_, i) => (
-           <button
+            <button
               key={i}
               type="button"
-              aria-label={`${i + 1}踰?諛곕꼫 蹂닿린`}
-              title={`${i + 1}踰?諛곕꼫 蹂닿린`}
+              aria-label={`${i + 1}번 배너 보기`}
+              title={`${i + 1}번 배너 보기`}
               onClick={() => setIdx(i)}
               style={{
                 width: i === idx ? 24 : 7,
@@ -139,24 +170,31 @@ export default function HomePage() {
           ))}
         </div>
 
-        {/* 諛곕꼫 移댁슫??*/}
         <div style={{ position: 'absolute', bottom: 22, left: '1.5rem', fontSize: '0.78rem', color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>
           {idx + 1} / {BANNERS.length}
         </div>
       </section>
 
-      {/* ?? 移댄뀒怨좊━ 鍮좊Ⅸ 硫붾돱 ?? */}
       <section style={{ background: '#fff', borderBottom: '1px solid var(--gray-200)' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 1.5rem' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)' }}>
             {QUICK_CATS.map((c, i) => (
-              <Link key={c.key} href={`/events?category=${c.key}`} style={{
-                textDecoration: 'none', textAlign: 'center', padding: '1.25rem 0.5rem',
-                borderRight: i < QUICK_CATS.length - 1 ? '1px solid var(--gray-100)' : 'none',
-                transition: 'background 0.15s',
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--primary-bg)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+              <Link
+                key={c.key}
+                href={`/events?category=${c.key}`}
+                style={{
+                  textDecoration: 'none',
+                  textAlign: 'center',
+                  padding: '1.25rem 0.5rem',
+                  borderRight: i < QUICK_CATS.length - 1 ? '1px solid var(--gray-100)' : 'none',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLElement).style.background = 'var(--primary-bg)';
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLElement).style.background = 'transparent';
+                }}
               >
                 <div style={{ fontSize: '1.6rem', marginBottom: '0.35rem' }}>{c.emoji}</div>
                 <p style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-sub)' }}>{c.label}</p>
@@ -166,30 +204,26 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ?? ?멸린 怨듭뿰 ?? */}
       <section style={{ maxWidth: 1280, margin: '0 auto', padding: '2.5rem 1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
           <div>
             <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>HOT</p>
-            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-main)' }}>吏湲??멸린 ?덈뒗 怨듭뿰</h2>
+            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-main)' }}>지금 인기 있는 공연</h2>
           </div>
           <Link href="/events" style={{ fontSize: '0.83rem', color: 'var(--primary)', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-            ?꾩껜 蹂닿린 <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            전체 보기 <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </Link>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
           {events.slice(0, 8).map((ev, i) => (
-          <div key={`${ev.eventId ?? 'noid'}-${i}`} className={`anim-up d${Math.min(i + 1, 8)}`}>
-            <EventCard event={ev} index={i} />
-          </div>
-        ))}
-          
+            <div key={`${ev.eventId ?? 'noid'}-${i}`} className={`anim-up d${Math.min(i + 1, 8)}`}>
+              <EventCard event={ev} index={i} />
+            </div>
+          ))}
         </div>
-        <style>{`@media(max-width:1024px){.hot-grid{grid-template-columns:repeat(3,1fr)!important}}@media(max-width:640px){.hot-grid{grid-template-columns:repeat(2,1fr)!important}}`}</style>
       </section>
 
-      {/* ?? ?꾨줈紐⑥뀡 諛곕꼫 ?? */}
       <section style={{ background: 'var(--primary-bg)', borderTop: '1px solid rgba(255,75,110,0.12)', borderBottom: '1px solid rgba(255,75,110,0.12)', padding: '2rem 1.5rem' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
           <div>
@@ -200,15 +234,14 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ?? ?λⅤ蹂?異붿쿇 ?? */}
       <section style={{ maxWidth: 1280, margin: '0 auto', padding: '2.5rem 1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
           <div>
             <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>NEW</p>
-            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-main)' }}>?좉퇋 ?ㅽ뵂 怨듭뿰</h2>
+            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-main)' }}>신규 오픈 공연</h2>
           </div>
           <Link href="/events?sort=newest" style={{ fontSize: '0.83rem', color: 'var(--primary)', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-            ??蹂닿린 <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            더 보기 <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </Link>
         </div>
 
@@ -221,8 +254,12 @@ export default function HomePage() {
                     src={MOCK[i % 6].posterUrl || `https://images.unsplash.com/photo-150128166874${i}-f7f57925c3b4?w=200&q=80`}
                     alt=""
                     style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLImageElement).style.transform = 'scale(1.06)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLImageElement).style.transform = 'scale(1)'; }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.transform = 'scale(1.06)';
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.transform = 'scale(1)';
+                    }}
                   />
                 </div>
                 <div style={{ padding: '0.75rem', flex: 1, minWidth: 0 }}>
