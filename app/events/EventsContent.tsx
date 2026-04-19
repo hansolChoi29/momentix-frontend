@@ -80,7 +80,7 @@ export default function EventsContent() {
       setLoading(true);
 
       try {
-        const [internalResponse, externalResponse] = await Promise.all([
+        const [internalResult, externalResult] = await Promise.allSettled([
           eventApi.list({
             category: category || undefined,
             sort,
@@ -95,6 +95,11 @@ export default function EventsContent() {
             }).toString()}`
           ),
         ]);
+
+        const internalResponse =
+          internalResult.status === 'fulfilled' ? internalResult.value : null;
+        const externalResponse =
+          externalResult.status === 'fulfilled' ? externalResult.value : null;
 
         const internalData = internalResponse?.data;
         const rawInternalList: unknown[] = Array.isArray(internalData)
@@ -131,7 +136,7 @@ export default function EventsContent() {
           };
         });
 
-        const externalData: ExternalEventsResponse = externalResponse.ok
+        const externalData: ExternalEventsResponse = externalResponse?.ok
           ? ((await externalResponse.json()) as ExternalEventsResponse)
           : {};
         const externalEvents = Array.isArray(externalData?.content)
