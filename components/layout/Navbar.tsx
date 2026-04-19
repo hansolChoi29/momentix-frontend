@@ -9,7 +9,7 @@ const NAV = [
   { href: '/events', label: '전체 공연' },
   { href: '/events?category=CONCERT', label: '콘서트' },
   { href: '/events?category=MUSICAL', label: '뮤지컬' },
-  { href: '/events?category=THEATER', label: '연극' }
+  { href: '/events?category=PLAY', label: '연극' }
 ];
 
 export default function Navbar() {

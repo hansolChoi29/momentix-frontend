@@ -1,31 +1,77 @@
-'use client';
-import axios from 'axios';
+﻿'use client';
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import SeatMap from '@/components/seat/SeatMap';
-import { eventApi, reservationApi } from '@/lib/api';
 import { Event, EventSchedule, SeatGrade } from '@/types';
 import { useAuthStore } from '@/store/authStore';
+import { isDemoMode, getDemoBookedSeatIds } from '@/lib/demo';
+import { eventApi, reservationApi } from '@/lib/api';
+import { getCachedExternalEvent, normalizeEventSource } from '@/lib/events';
+
 
 const MOCK: Event = {
-  eventId:1, title:'2025 IU HEREH WORLD TOUR IN SEOUL',
-  description:`아이유의 세 번째 단독 월드투어 "HEREH"가 서울에서 펼쳐집니다.\n\n데뷔 17주년을 맞아 기획된 이번 투어는 아이유의 전 음악 커리어를 아우르는 특별한 무대로 구성됩니다.\n화려한 퍼포먼스와 함께 팬들에게 잊지 못할 추억을 선사할 예정입니다.\n\n공연 시간: 약 150분 (인터미션 없음)\n관람 연령: 만 7세 이상`,
-  category:'CONCERT', status:'ON_SALE',
-  posterUrl:'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800&q=90',
-  venue:{ venueId:1, name:'올림픽 주경기장', address:'서울특별시 송파구 올림픽로 25', capacity:68000 },
+  eventId: 1,
+  title: '2025 IU HEREH WORLD TOUR IN SEOUL',
+  description:
+    '아이유의 월드 투어 서울 공연입니다. 좌석 선택 후 결제까지 기존 플로우를 확인할 수 있습니다.',
+  category: 'CONCERT',
+  status: 'ON_SALE',
+  posterUrl: 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800&q=90',
+  venue: {
+    venueId: 1,
+    name: '올림픽 주경기장',
+    address: '서울 송파구 올림픽로 25',
+    capacity: 68000,
+  },
   schedules:[
     { scheduleId:1, date:'2025-08-15', startTime:'18:00', endTime:'20:30' },
     { scheduleId:2, date:'2025-08-16', startTime:'18:00', endTime:'20:30' },
     { scheduleId:3, date:'2025-08-17', startTime:'17:00', endTime:'19:30' },
   ],
-  minPrice:100, maxPrice:100, runningTime:150,
-  rating:'전체 관람가', hostName:'카카오엔터테인먼트', tags:['아이유','IU','콘서트'],
+  minPrice: 100,
+  maxPrice: 100,
+  runningTime: 150,
+  rating: '전체 관람가',
+  hostName: '카카오엔터테인먼트',
+  tags: ['아이유', 'IU', '콘서트'],
 };
+
+type SeatApiItem = {
+  id?: number;
+  seatGradeType?: string;
+  seatPrice?: number | string;
+  seatReserveStatus?: string;
+  seatRow?: number;
+  seatCol?: number;
+};
+
+function unwrapResponse<T>(payload: unknown): T {
+  const source = payload as { data?: unknown };
+  return (source?.data ?? source) as T;
+}
+
+function ensureSchedules(event: Event): Event {
+  if (Array.isArray(event.schedules) && event.schedules.length > 0) return event;
+
+  const today = new Date().toISOString().slice(0, 10);
+  return {
+    ...event,
+    schedules: [
+      {
+        scheduleId: 1,
+        date: today,
+        startTime: '',
+        endTime: '',
+      },
+    ],
+  };
+}
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isAuthenticated } = useAuthStore();
   const [event, setEvent] = useState<Event>(MOCK);
   const [selSched, setSelSched] = useState<EventSchedule | null>(null);
@@ -34,58 +80,216 @@ export default function EventDetailPage() {
   const [step, setStep] = useState<'info'|'seat'|'done'>('info');
   const [tab, setTab] = useState<'info'|'venue'|'notice'>('info');
   const [loading, setLoading] = useState(false);
+  const externalEventId = searchParams.get('externalEventId');
+  const isExternalEvent =
+    normalizeEventSource(searchParams.get('sourceType')) === 'EXTERNAL' &&
+    Boolean(externalEventId);
   const img = event.posterUrl || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800&q=90';
 
+  useEffect(() => {
+    if (!isExternalEvent || !externalEventId) return;
 
+    const loadExternalDetail = async () => {
+      try {
+        const cached = getCachedExternalEvent(externalEventId);
+        if (cached) {
+          setEvent(ensureSchedules(cached));
+        }
+
+        const response = await fetch(
+          `/api/external-events/detail?externalEventId=${encodeURIComponent(externalEventId)}`
+        );
+        if (!response.ok) return;
+        const externalEvent = (await response.json()) as Event;
+        setEvent(ensureSchedules(externalEvent));
+      } catch {
+      }
+    };
+
+    void loadExternalDetail();
+  }, [externalEventId, isExternalEvent]);
 
 const pickSched = async (s: EventSchedule) => {
   setSelSched(s);
+  setSelSeats([]);
   setStep('seat');
+  setLoading(true);
 
-  setGrades([
-    {
-      grade: 'R',
-      color: '#FF4B6E',
-      price: 220000,
-      seats: Array.from({ length: 20 }, (_, i) => ({
-        seatId: i + 1,
-        seatNumber: String(i + 1),
-        row: 'R',
+  const eventIdNum = Number(id);
+  const scheduleIdNum = Number(s.scheduleId);
+  const placeIdNum = Number(event.venue?.venueId ?? 1);
+
+  const applyDemoGrades = () => {
+    const demoBookedSeatIds = getDemoBookedSeatIds(eventIdNum, scheduleIdNum);
+
+    const applyDemoBooked = (
+      seatId: number,
+      defaultStatus: 'AVAILABLE' | 'RESERVED'
+    ) => (demoBookedSeatIds.includes(seatId) ? 'RESERVED' : defaultStatus);
+
+    setGrades([
+      {
         grade: 'R',
-        price: 220000,
-        status: i % 5 === 0 ? 'RESERVED' : 'AVAILABLE',
-      })),
-    },
-    {
-      grade: 'S',
-      color: '#5B8CFF',
-      price: 165000,
-      seats: Array.from({ length: 20 }, (_, i) => ({
-        seatId: i + 101,
-        seatNumber: String(i + 1),
-        row: 'S',
+        color: '#7c3aed',
+        price: event.minPrice + 70000,
+        seats: Array.from({ length: 20 }, (_, i) => ({
+          seatId: i + 1,
+          grade: 'R',
+          floor: 1,
+          row: String(Math.floor(i / 10) + 1),
+          seatNumber: String((i % 10) + 1),
+          price: event.minPrice + 70000,
+          status: applyDemoBooked(i + 1, i % 5 === 0 ? 'RESERVED' : 'AVAILABLE'),
+        })),
+      },
+      {
         grade: 'S',
-        price: 165000,
-        status: i % 6 === 0 ? 'RESERVED' : 'AVAILABLE',
-      })),
-    },
-  ]);
+        color: '#2563eb',
+        price: event.minPrice + 30000,
+        seats: Array.from({ length: 30 }, (_, i) => ({
+          seatId: 100 + i + 1,
+          grade: 'S',
+          floor: 1,
+          row: String(Math.floor(i / 10) + 1),
+          seatNumber: String((i % 10) + 1),
+          price: event.minPrice + 30000,
+          status: applyDemoBooked(
+            100 + i + 1,
+            i % 7 === 0 ? 'RESERVED' : 'AVAILABLE'
+          ),
+        })),
+      },
+      {
+        grade: 'A',
+        color: '#10b981',
+        price: event.minPrice,
+        seats: Array.from({ length: 40 }, (_, i) => ({
+          seatId: 200 + i + 1,
+          grade: 'A',
+          floor: 2,
+          row: String(Math.floor(i / 10) + 1),
+          seatNumber: String((i % 10) + 1),
+          price: event.minPrice,
+          status: applyDemoBooked(
+            200 + i + 1,
+            i % 8 === 0 ? 'RESERVED' : 'AVAILABLE'
+          ),
+        })),
+      },
+    ]);
+  };
+
+  if (isDemoMode) {
+    applyDemoGrades();
+    setLoading(false);
+    return;
+  }
+
+  try {
+    const response = await eventApi.seats(eventIdNum, placeIdNum, scheduleIdNum, { page: 0, size: 500 });
+    const pageData = unwrapResponse<{ content?: SeatApiItem[] }>(response.data);
+    const seatItems = Array.isArray(pageData?.content) ? pageData.content : [];
+
+    if (seatItems.length > 0) {
+      const gradeMap = new Map<string, SeatGrade>();
+      for (const seat of seatItems) {
+        const grade = seat.seatGradeType ?? 'A';
+        const price = Number(seat.seatPrice ?? event.minPrice);
+        if (!gradeMap.has(grade)) {
+          gradeMap.set(grade, {
+            grade,
+            price,
+            color: '#7c3aed',
+            seats: [],
+          });
+        }
+
+        const rawStatus = String(seat.seatReserveStatus ?? 'AVAILABLE').toUpperCase();
+        const status = rawStatus === 'AVAILABLE' ? 'AVAILABLE' : 'RESERVED';
+
+        gradeMap.get(grade)!.seats.push({
+          seatId: Number(seat.id ?? 0),
+          grade,
+          row: String(seat.seatRow ?? ''),
+          seatNumber: String(seat.seatCol ?? ''),
+          price,
+          status,
+        });
+      }
+
+      setGrades(Array.from(gradeMap.values()));
+      return;
+    }
+  } catch {
+    applyDemoGrades();
+  } finally {
+    setLoading(false);
+  }
 };
 
 const handleReserve = async () => {
+  if (!selSched || selSeats.length === 0) return;
   if (!isAuthenticated) {
     router.push('/login');
     return;
   }
 
-  if (!selSched || !selSeats.length) return;
+  const goDemoPayment = () => {
+    const allSeats = grades.flatMap((grade) => grade.seats);
+    const amount = selSeats.reduce((total, seatId) => {
+      const seat = allSeats.find((item) => item.seatId === seatId);
+      return total + Number(seat?.price ?? event.minPrice ?? 0);
+    }, 0);
+    const seatIds = selSeats.join(',');
+    router.push(
+      `/payment/9999?amount=${amount}&eventId=${id}&scheduleId=${selSched.scheduleId}&seatIds=${seatIds}&external=${isExternalEvent ? '1' : '0'}`
+    );
+  };
 
-  // 지금은 백엔드 reservation API 구조가 프론트와 안 맞으니,
-  // UX 확인용으로 바로 결제 페이지 이동
-  const fakeReservationId = 9999;
-  const amount = event.minPrice * selSeats.length;
+  if (isDemoMode || isExternalEvent) {
+    goDemoPayment();
+    return;
+  }
 
-  router.push(`/payment/${fakeReservationId}?amount=${amount}`);
+  try {
+    setLoading(true);
+
+    const eventIdNum = Number(id);
+    const placeIdNum = Number(event.venue?.venueId ?? 1);
+    const scheduleIdNum = Number(selSched.scheduleId);
+
+    const reservationRes = await reservationApi.selectAll(eventIdNum, placeIdNum, scheduleIdNum);
+    const reservation = unwrapResponse<{ reservationId?: number }>(reservationRes.data);
+    const reservationId = Number(reservation?.reservationId);
+    if (!reservationId) throw new Error('reservationId missing');
+
+    for (const seatId of selSeats) {
+      await reservationApi.selectSeat(reservationId, seatId);
+    }
+
+    const allSeats = grades.flatMap((grade) => grade.seats);
+    const amount = selSeats.reduce((total, seatId) => {
+      const seat = allSeats.find((item) => item.seatId === seatId);
+      return total + Number(seat?.price ?? event.minPrice);
+    }, 0);
+
+    router.push(
+      `/payment/${reservationId}?amount=${amount}&eventId=${id}&scheduleId=${selSched.scheduleId}&seatIds=${selSeats.join(',')}`
+    );
+  } catch (e: unknown) {
+    const apiError = e as { response?: { status?: number; data?: { message?: string } } };
+    if (apiError?.response?.status === 403) {
+      goDemoPayment();
+      return;
+    }
+    const message = apiError?.response?.data?.message || '醫뚯꽍 ?좎젏 以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎.';
+    alert(message);
+    if (selSched) {
+      await pickSched(selSched);
+    }
+  } finally {
+    setLoading(false);
+  }
 };
 
   if (step === 'done') return (
@@ -96,7 +300,9 @@ const handleReserve = async () => {
         </div>
         <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.5rem' }}>예매 완료!</h2>
         <p style={{ color: 'var(--text-sub)', marginBottom: '0.25rem', fontSize: '0.9rem' }}>{event.title}</p>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '2rem' }}>{selSched?.date} {selSched?.startTime} · {selSeats.length}매</p>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '2rem' }}>
+          {selSched?.date} {selSched?.startTime} · {selSeats.length}매
+        </p>
         <div style={{ display: 'flex', gap: '0.6rem' }}>
           <Link href="/my/tickets" className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}>내 티켓 보기</Link>
           <Link href="/events" className="btn-ghost" style={{ flex: 1, justifyContent: 'center' }}>계속 보기</Link>
@@ -107,7 +313,7 @@ const handleReserve = async () => {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--gray-100)' }}>
-      {/* 상단 이미지 배너 */}
+      {/* ?곷떒 ?대?吏 諛곕꼫 */}
       <div style={{ background: '#000', height: 320, position: 'relative', overflow: 'hidden' }}>
         <img src={img} alt={event.title} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'brightness(0.45)' }} />
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'flex-end' }}>
@@ -117,28 +323,27 @@ const handleReserve = async () => {
                 CONCERT: '콘서트',
                 MUSICAL: '뮤지컬',
                 PLAY: '연극',
-                CLASSIC: '클래식',
               }[event.category] || event.category}
             </span>
             <h1 style={{ fontSize: 'clamp(1.3rem, 3.5vw, 2.2rem)', fontWeight: 800, color: '#fff', marginBottom: '0.4rem', maxWidth: 680, lineHeight: 1.2 }}>{event.title}</h1>
-            <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)' }}>{event.venue?.name} · {event.runningTime}분 · {event.rating}</p>
+            <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)' }}>{event.venue?.name} 쨌 {event.runningTime}遺?쨌 {event.rating}</p>
           </div>
         </div>
       </div>
 
-      {/* 메인 콘텐츠 */}
+      {/* 硫붿씤 肄섑뀗痢?*/}
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: '1.5rem' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '1.5rem', alignItems: 'start' }}>
 
-          {/* 좌측 */}
+          {/* 醫뚯륫 */}
           <div>
             {step === 'info' && (
               <div className="card">
-                {/* 탭 */}
+                {/* ??*/}
                 <div style={{ display: 'flex', borderBottom: '1px solid var(--gray-200)', padding: '0 1.25rem' }}>
                   {(['info','venue','notice'] as const).map(t => (
                     <button key={t} onClick={() => setTab(t)} className={`tab-btn ${tab === t ? 'active' : ''}`}>
-                      {t === 'info' ? '공연 정보' : t === 'venue' ? '공연장 안내' : '유의사항'}
+                      {t === 'info' ? '怨듭뿰 ?뺣낫' : t === 'venue' ? '怨듭뿰???덈궡' : '?좎쓽?ы빆'}
                     </button>
                   ))}
                 </div>
@@ -159,14 +364,16 @@ const handleReserve = async () => {
                     <div className="anim-in" style={{ background: 'var(--gray-100)', borderRadius: 'var(--radius-sm)', padding: '1.25rem' }}>
                       <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.5rem' }}>{event.venue?.name}</h3>
                       <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>{event.venue?.address}</p>
-                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>수용 인원: {event.venue?.capacity?.toLocaleString()}명</p>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                        수용 인원: {event.venue?.capacity?.toLocaleString()}명
+                      </p>
                     </div>
                   )}
                   {tab === 'notice' && (
                     <div className="anim-in" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                      {['티켓은 예매 후 마이페이지에서 확인 가능합니다.','공연 시작 후 30분 경과 시 입장이 제한될 수 있습니다.','음식물 반입은 허용되지 않습니다.','사진/영상 촬영은 금지됩니다.','취소 및 환불은 공연일 3일 전까지 가능합니다.'].map((n, i) => (
+                      {['?곗폆? ?덈ℓ ??留덉씠?섏씠吏?먯꽌 ?뺤씤 媛?ν빀?덈떎.','怨듭뿰 ?쒖옉 ??30遺?寃쎄낵 ???낆옣???쒗븳?????덉뒿?덈떎.','?뚯떇臾?諛섏엯? ?덉슜?섏? ?딆뒿?덈떎.','?ъ쭊/?곸긽 珥ъ쁺? 湲덉??⑸땲??','痍⑥냼 諛??섎텋? 怨듭뿰??3???꾧퉴吏 媛?ν빀?덈떎.'].map((n, i) => (
                         <div key={i} style={{ display: 'flex', gap: '0.6rem', fontSize: '0.87rem', color: 'var(--text-sub)', alignItems: 'flex-start' }}>
-                          <span style={{ color: 'var(--primary)', fontWeight: 700, flexShrink: 0 }}>·</span>{n}
+                          <span style={{ color: 'var(--primary)', fontWeight: 700, flexShrink: 0 }}>쨌</span>{n}
                         </div>
                       ))}
                     </div>
@@ -208,7 +415,7 @@ const handleReserve = async () => {
                     </svg>
                   </button>
                   <div>
-                    <p style={{ fontWeight: 700, fontSize: '1rem' }}>좌석 선택</p>
+                    <p style={{ fontWeight: 700, fontSize: '1rem' }}>醫뚯꽍 ?좏깮</p>
                     <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{new Date(selSched.date).toLocaleDateString('ko-KR')} {selSched.startTime}</p>
                   </div>
                 </div>
@@ -228,10 +435,10 @@ const handleReserve = async () => {
             )}
           </div>
 
-          {/* 우측 예매 패널 */}
+          {/* ?곗륫 ?덈ℓ ?⑤꼸 */}
           <div style={{ position: 'sticky', top: 76 }}>
             <div className="card" style={{ overflow: 'hidden' }}>
-              {/* 포스터 썸네일 */}
+              {/* ?ъ뒪???몃꽕??*/}
               <div style={{ height: 160, overflow: 'hidden' }}>
                 <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
@@ -241,12 +448,12 @@ const handleReserve = async () => {
                 <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.85rem' }}>{event.venue?.name}</p>
 
                 <div style={{ background: 'var(--primary-bg)', borderRadius: 8, padding: '0.75rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--primary)', fontWeight: 600 }}>최저가</span>
-                  <span style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--primary)' }}>{event.minPrice.toLocaleString()}원~</span>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--primary)', fontWeight: 600 }}>理쒖?媛</span>
+                  <span style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--primary)' }}>{event.minPrice.toLocaleString()}??</span>
                 </div>
 
-                {/* 날짜 선택 */}
-                <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.6rem' }}>날짜 선택</p>
+                {/* ?좎쭨 ?좏깮 */}
+                <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.6rem' }}>?좎쭨 ?좏깮</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '1rem' }}>
                   {event.schedules.map(s => {
                     const active = selSched?.scheduleId === s.scheduleId;
@@ -271,23 +478,25 @@ const handleReserve = async () => {
 
                 {selSeats.length > 0 && (
                   <div style={{ background: 'var(--gray-100)', borderRadius: 8, padding: '0.6rem 0.85rem', marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '0.82rem', color: 'var(--text-sub)' }}>선택 좌석</span>
-                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>{selSeats.length}매</span>
+                    <span style={{ fontSize: '0.82rem', color: 'var(--text-sub)' }}>?좏깮 醫뚯꽍</span>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                      {selSeats.length}매
+                    </span>
                   </div>
                 )}
 
                 {step === 'seat' && selSeats.length > 0 ? (
                   <button onClick={handleReserve} disabled={loading} className="btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '0.85rem', fontSize: '0.9rem' }}>
-                    {loading ? '처리 중...' : `${selSeats.length}매 예매하기`}
+                    {loading ? '泥섎━ 以?..' : `${selSeats.length}留??덈ℓ?섍린`}
                   </button>
                 ) : (
                   <button className="btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '0.85rem', fontSize: '0.9rem', opacity: 0.5, cursor: 'default' }} disabled>
-                    날짜를 선택해주세요
+                    ?좎쭨瑜??좏깮?댁＜?몄슂
                   </button>
                 )}
 
                 {event.hostName && (
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '0.75rem' }}>주최: {event.hostName}</p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '0.75rem' }}>二쇱턀: {event.hostName}</p>
                 )}
               </div>
             </div>

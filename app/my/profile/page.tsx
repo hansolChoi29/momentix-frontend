@@ -4,94 +4,22 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { userApi } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
-import './profile.css';
 
 type ProfileFormValues = {
   nickname: string;
   phone: string;
 };
 
-function ProfileForm({
-  initialForm,
-}: {
-  initialForm: ProfileFormValues;
-}) {
-  const [form, setForm] = useState<ProfileFormValues>(initialForm);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsSaving(true);
-
-    try {
-      await userApi.update(form);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-    } catch {
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSave} className="p-6 space-y-5">
-      <div>
-        <label
-          htmlFor="nickname"
-          className="block text-xs tracking-widest mb-2 profile-label"
-        >
-          닉네임
-        </label>
-        <input
-          id="nickname"
-          name="nickname"
-          type="text"
-          className="input-dark"
-          value={form.nickname}
-          onChange={(e) =>
-            setForm((prev) => ({ ...prev, nickname: e.target.value }))
-          }
-        />
-      </div>
-
-      <div>
-        <label
-          htmlFor="phone"
-          className="block text-xs tracking-widest mb-2 profile-label"
-        >
-          전화번호
-        </label>
-        <input
-          id="phone"
-          name="phone"
-          type="tel"
-          className="input-dark"
-          placeholder="010-0000-0000"
-          value={form.phone}
-          onChange={(e) =>
-            setForm((prev) => ({ ...prev, phone: e.target.value }))
-          }
-        />
-      </div>
-
-      <div className="flex justify-end gap-3 pt-2">
-        {saved && (
-          <span className="flex items-center text-xs profile-saved-text">
-            ✓ 저장되었습니다
-          </span>
-        )}
-        <button type="submit" className="btn-gold" disabled={isSaving}>
-          {isSaving ? '저장 중...' : '변경사항 저장'}
-        </button>
-      </div>
-    </form>
-  );
-}
-
 export default function ProfilePage() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuthStore();
+
+  const [form, setForm] = useState<ProfileFormValues>({
+    nickname: user?.nickname || '',
+    phone: '',
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -99,100 +27,125 @@ export default function ProfilePage() {
     }
   }, [isAuthenticated, router]);
 
-  const MENU_LINKS = [
-    { href: '/my/tickets', label: '내 티켓', icon: '◇', desc: '예매한 티켓 확인' },
-    { href: '/my/reservations', label: '예매 내역', icon: '◈', desc: '예매 현황 및 취소' },
-  ];
+  const handleSave = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSaving(true);
+    try {
+      await userApi.update(form);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch {
+      alert('프로필 저장에 실패했습니다.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
-  if (!isAuthenticated) {
-    return null;
-  }
+  if (!isAuthenticated) return null;
 
   return (
-    <div className="profile-page">
-      <div className="profile-header">
-        <div className="max-w-4xl mx-auto px-6 py-12">
-          <p className="text-xs tracking-widest mb-2 profile-header-kicker">
-            MY PAGE
-          </p>
-          <h1 className="font-display text-4xl font-semibold profile-header-title">
-            프로필 설정
-          </h1>
-        </div>
-      </div>
+    <main
+      style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(180deg, rgba(255,240,243,0.42) 0%, #f7f8fa 34%, #f7f8fa 100%)',
+        paddingTop: '4rem',
+      }}
+    >
+      <section style={{ maxWidth: 1100, margin: '0 auto', padding: '1.8rem 1.3rem 0.2rem' }}>
+        <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: '0.14em' }}>MY PAGE</p>
+        <h1 style={{ marginTop: '0.35rem', fontSize: '2rem', fontWeight: 800, color: 'var(--text-main)' }}>프로필 설정</h1>
+        <p style={{ marginTop: '0.4rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+          계정 정보를 확인하고 닉네임/연락처를 수정할 수 있습니다.
+        </p>
+      </section>
 
-      <div className="max-w-4xl mx-auto px-6 py-10">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div>
-            <div className="mb-4 p-6 text-center profile-user-card">
-              <div className="w-16 h-16 mx-auto mb-3 flex items-center justify-center rounded-full text-2xl font-bold profile-avatar">
+      <section style={{ maxWidth: 1100, margin: '0 auto', padding: '1rem 1.3rem 2.4rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', gap: '0.9rem' }}>
+          <article className="card" style={{ padding: '1.2rem', borderRadius: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
+              <div
+                style={{
+                  width: 58,
+                  height: 58,
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 800,
+                  fontSize: '1.1rem',
+                  background: 'var(--primary-bg)',
+                  color: 'var(--primary)',
+                  border: '1px solid rgba(255,75,110,0.24)',
+                }}
+              >
                 {user?.nickname?.[0] || 'U'}
               </div>
-              <p className="font-semibold profile-user-name">{user?.nickname}</p>
-              <p className="text-xs mt-1 profile-user-email">{user?.email}</p>
-            </div>
-
-            <div className="space-y-px">
-              {MENU_LINKS.map((m) => (
-                <button
-                  key={m.href}
-                  type="button"
-                  onClick={() => router.push(m.href)}
-                  className="w-full text-left p-4 transition-all flex items-center gap-3 profile-menu-button"
-                >
-                  <span className="font-display text-lg profile-menu-icon">
-                    {m.icon}
-                  </span>
-                  <div>
-                    <p className="text-sm font-medium profile-menu-label">
-                      {m.label}
-                    </p>
-                    <p className="text-xs profile-menu-desc">{m.desc}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="md:col-span-2">
-            <div className="profile-panel">
-              <div className="px-6 py-4 profile-panel-header">
-                <h2 className="font-display text-lg font-semibold profile-panel-title">
-                  기본 정보
-                </h2>
+              <div>
+                <p style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)' }}>{user?.nickname || '사용자'}</p>
+                <p style={{ marginTop: '0.2rem', fontSize: '0.84rem', color: 'var(--text-muted)' }}>{user?.email || ''}</p>
               </div>
+            </div>
 
-              <div className="p-6 space-y-5">
-                <div>
-                  <label
-                    htmlFor="email"
-                    className="block text-xs tracking-widest mb-2 profile-label"
-                  >
-                    이메일
-                  </label>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    className="input-dark profile-input-disabled"
-                    value={user?.email || ''}
-                    disabled
-                    readOnly
-                  />
-                </div>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.9rem' }}>
+              <button className="btn-outline" style={{ padding: '0.48rem 0.8rem', fontSize: '0.78rem' }} onClick={() => router.push('/my/tickets')}>
+                내 티켓
+              </button>
+              <button className="btn-outline" style={{ padding: '0.48rem 0.8rem', fontSize: '0.78rem' }} onClick={() => router.push('/my/reservations')}>
+                예매 내역
+              </button>
+              <button className="btn-outline" style={{ padding: '0.48rem 0.8rem', fontSize: '0.78rem' }} onClick={() => router.push('/my/payments')}>
+                결제 내역
+              </button>
+            </div>
+          </article>
 
-                <ProfileForm
-                  key={user?.email || 'profile-form'}
-                  initialForm={{
-                    nickname: user?.nickname || '',
-                    phone: '',
-                  }}
+          <article className="card" style={{ padding: '1.2rem', borderRadius: 14 }}>
+            <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)' }}>기본 정보</h2>
+            <p style={{ marginTop: '0.35rem', fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+              이메일은 변경할 수 없으며, 나머지 항목은 저장 버튼으로 즉시 반영됩니다.
+            </p>
+
+            <form onSubmit={handleSave} style={{ marginTop: '0.95rem', display: 'grid', gap: '0.9rem' }}>
+              <label>
+                <span style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.35rem', letterSpacing: '0.07em' }}>
+                  이메일
+                </span>
+                <input className="input-field" value={user?.email || ''} disabled readOnly style={{ opacity: 0.65, cursor: 'not-allowed' }} />
+              </label>
+
+              <label>
+                <span style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.35rem', letterSpacing: '0.07em' }}>
+                  닉네임
+                </span>
+                <input
+                  className="input-field"
+                  value={form.nickname}
+                  onChange={(e) => setForm((prev) => ({ ...prev, nickname: e.target.value }))}
                 />
+              </label>
+
+              <label>
+                <span style={{ display: 'block', fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '0.35rem', letterSpacing: '0.07em' }}>
+                  전화번호
+                </span>
+                <input
+                  className="input-field"
+                  value={form.phone}
+                  placeholder="010-0000-0000"
+                  onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
+                />
+              </label>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.6rem', marginTop: '0.15rem' }}>
+                {saved && <span style={{ fontSize: '0.8rem', color: '#1A8C6E', fontWeight: 700 }}>저장되었습니다.</span>}
+                <button type="submit" className="btn-primary" style={{ padding: '0.68rem 1rem' }} disabled={isSaving}>
+                  {isSaving ? '저장 중...' : '변경사항 저장'}
+                </button>
               </div>
-            </div>
-          </div>
+            </form>
+          </article>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

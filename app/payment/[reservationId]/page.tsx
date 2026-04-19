@@ -1,13 +1,8 @@
-'use client';
+﻿'use client';
 
 import { Suspense, useEffect, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { loadTossPayments } from '@tosspayments/payment-sdk';
-import { paymentApi } from '@/lib/api';
-
-function makeIdempotencyKey() {
-  return `pay-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
 
 function makeOrderId(reservationId: string) {
   return `MOMENTIX-${reservationId}-${Date.now()}`;
@@ -20,193 +15,145 @@ function PaymentPageContent() {
 
   const reservationId = Number(params.reservationId);
   const amount = Number(searchParams.get('amount') ?? '0');
-  const [loading, setLoading] = useState(false);
-  const [method, setMethod] = useState<'toss' | 'mock'>('toss');
+  const eventId = searchParams.get('eventId') ?? '';
+  const scheduleId = searchParams.get('scheduleId') ?? '';
+  const seatIds = searchParams.get('seatIds') ?? '';
+  const external = searchParams.get('external') ?? '0';
+  const isExternalFlow = external === '1';
+  const payableAmount = isExternalFlow ? Math.max(100, amount || 0) : amount;
 
+  const [loading, setLoading] = useState(false);
   const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
 
   useEffect(() => {
-    if (!clientKey) alert('토스 클라이언트 키가 없습니다.');
+    if (!clientKey) {
+      alert('토스 클라이언트 키가 설정되지 않았습니다.');
+    }
   }, [clientKey]);
 
   const handlePay = async () => {
-    if (!clientKey || !reservationId || !amount) {
+    if (!reservationId || !payableAmount) {
       alert('결제 정보가 올바르지 않습니다.');
       return;
     }
 
     try {
       setLoading(true);
+      const successQuery = new URLSearchParams({
+        reservationId: String(reservationId),
+        amount: String(payableAmount),
+      });
+      if (eventId) successQuery.set('eventId', eventId);
+      if (scheduleId) successQuery.set('scheduleId', scheduleId);
+      if (seatIds) successQuery.set('seatIds', seatIds);
+      if (external) successQuery.set('external', external);
+
+      if (!clientKey) {
+        alert('토스 클라이언트 키가 설정되지 않았습니다.');
+        return;
+      }
+
       const tossPayments = await loadTossPayments(clientKey);
 
       await tossPayments.requestPayment('카드', {
-        amount,
+        amount: payableAmount,
         orderId: makeOrderId(String(reservationId)),
         orderName: `Momentix 예매 결제 #${reservationId}`,
-        successUrl: `${window.location.origin}/payment/success?reservationId=${reservationId}&amount=${amount}`,
+        successUrl: `${window.location.origin}/payment/success?${successQuery.toString()}`,
         failUrl: `${window.location.origin}/payment/fail?reservationId=${reservationId}`,
       });
     } catch {
-      alert('결제창을 띄우는 중 문제가 발생했습니다.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleMockPay = async () => {
-    try {
-      setLoading(true);
-
-      const createRes = await paymentApi.create({
-        reservationId,
-        payer: 'SELF',
-        paymentMethod: 'TOSS_TEST',
-        paymentPrice: amount,
-        idempotencyKey: makeIdempotencyKey(),
-      });
-
-      await paymentApi.confirm(createRes.data.paymentHistoryId, {
-        reservationId,
-        pointsToUse: 0,
-      });
-
-      router.push('/my/tickets');
-    } catch {
-      alert('결제 처리 중 오류가 발생했습니다.');
+      alert('결제창을 여는 중 문제가 발생했습니다.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-8 text-center lg:mb-10">
-          <p className="mb-2 text-xs font-semibold tracking-[0.18em] text-pink-500">
+    <main
+      style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(180deg, rgba(255,240,243,0.38) 0%, #f7f8fa 36%, #f7f8fa 100%)',
+        padding: '2.2rem 1rem 3rem',
+      }}
+    >
+      <div style={{ maxWidth: 980, margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+          <p style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: '0.16em' }}>
             PAYMENT
           </p>
-          <h1 className="text-3xl font-semibold tracking-tight text-gray-900 sm:text-4xl">
-            예매 결제를 진행해주세요
+          <h1 style={{ marginTop: '0.45rem', fontSize: 'clamp(1.9rem, 5vw, 2.6rem)', fontWeight: 800, color: 'var(--text-main)' }}>
+            결제 상세
           </h1>
-          <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-gray-500 sm:text-base">
-            예약 정보를 확인한 뒤 원하는 결제 방식으로 진행할 수 있어요.
-            <br className="hidden sm:block" />
-            개발 중에는 빠른 결제로 테스트 흐름도 확인할 수 있습니다.
+          <p style={{ marginTop: '0.45rem', fontSize: '0.92rem', color: 'var(--text-muted)' }}>
+            결제 내역을 확인한 뒤 원하는 결제 수단으로 진행해주세요.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-          <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6">
-            <p className="mb-4 text-xs font-medium uppercase tracking-widest text-gray-400">
-              예약 정보
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', gap: '1rem' }}>
+          <section className="card" style={{ padding: '1.2rem', borderRadius: 14 }}>
+            <p style={{ fontSize: '0.74rem', fontWeight: 700, letterSpacing: '0.12em', color: 'var(--text-muted)' }}>
+              주문 정보
             </p>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="rounded-xl border border-gray-100 bg-gray-50/60 p-4">
-                <p className="mb-1 text-xs text-gray-400">예약 ID</p>
-                <p className="text-sm font-medium text-gray-900">#{reservationId}</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.7rem', marginTop: '0.8rem' }}>
+              <div style={{ border: '1px solid var(--gray-200)', borderRadius: 10, padding: '0.85rem' }}>
+                <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>예약 ID</p>
+                <p style={{ marginTop: '0.2rem', fontWeight: 700, color: 'var(--text-main)' }}>#{reservationId}</p>
               </div>
-
-              <div className="rounded-xl border border-gray-100 bg-gray-50/60 p-4">
-                <p className="mb-1 text-xs text-gray-400">결제 금액</p>
-                <p className="text-sm font-medium text-gray-900">
-                  {amount.toLocaleString()}원
-                </p>
+              <div style={{ border: '1px solid var(--gray-200)', borderRadius: 10, padding: '0.85rem' }}>
+                <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>결제 금액</p>
+                <p style={{ marginTop: '0.2rem', fontWeight: 800, color: 'var(--primary)' }}>{payableAmount.toLocaleString()}원</p>
               </div>
             </div>
 
-            <div className="mt-4 rounded-xl border border-gray-100 bg-white p-4">
-              <div className="flex items-center justify-between py-1.5 text-sm text-gray-500">
+            <div style={{ marginTop: '0.8rem', border: '1px solid var(--gray-200)', borderRadius: 10, padding: '0.85rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.84rem', color: 'var(--text-sub)' }}>
                 <span>상품 금액</span>
-                <span className="font-medium text-gray-900">
-                  {amount.toLocaleString()}원
-                </span>
+                <strong>{payableAmount.toLocaleString()}원</strong>
               </div>
-
-              <div className="flex items-center justify-between py-1.5 text-sm text-gray-500">
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.84rem', color: 'var(--text-sub)', marginTop: '0.35rem' }}>
                 <span>할인 / 포인트</span>
-                <span className="font-medium text-gray-900">0원</span>
+                <strong>0원</strong>
               </div>
-
-              <div className="mt-3 flex items-end justify-between border-t border-gray-100 pt-4">
-                <span className="text-sm font-medium text-gray-900">
-                  최종 결제 금액
-                </span>
-                <span className="text-xl font-semibold text-gray-900">
-                  {amount.toLocaleString()}원
-                </span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.65rem', paddingTop: '0.65rem', borderTop: '1px solid var(--gray-200)' }}>
+                <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>최종 결제 금액</span>
+                <span style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '1.03rem' }}>{payableAmount.toLocaleString()}원</span>
               </div>
             </div>
 
-            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
-              <p className="text-sm leading-6 text-amber-700">
-                실제 결제는 토스페이먼츠를 통해 안전하게 처리됩니다.
-                <br />
-                테스트 중에는 개발용 빠른 결제로 흐름을 먼저 점검할 수 있어요.
+            <div style={{ marginTop: '0.8rem', background: '#FFF9F0', border: '1px solid #FFD899', borderRadius: 10, padding: '0.8rem 0.95rem' }}>
+              <p style={{ fontSize: '0.82rem', color: '#996600', lineHeight: 1.7 }}>
+                결제 취소 시 결제하신 수단으로 영업일 기준 3일 이내 환불 처리됩니다.
               </p>
             </div>
+            {isExternalFlow && (
+              <div style={{ marginTop: '0.55rem', background: 'var(--primary-bg)', border: '1px solid rgba(255,75,110,0.25)', borderRadius: 10, padding: '0.75rem 0.95rem' }}>
+                <p style={{ fontSize: '0.82rem', color: 'var(--primary)', lineHeight: 1.65 }}>
+                  외부 연동 공연은 데모 결제로 처리되며 실제 금액은 청구되지 않습니다.
+                </p>
+              </div>
+            )}
           </section>
 
-          <aside className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm sm:p-6">
-            <p className="mb-4 text-xs font-medium uppercase tracking-widest text-gray-400">
-              결제 수단
-            </p>
+          <section className="card" style={{ padding: '1.2rem', borderRadius: 14 }}>
+            
 
-            <div className="space-y-3">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem', marginTop: '0.9rem' }}>
               <button
                 type="button"
-                onClick={() => setMethod('toss')}
-                className={`w-full rounded-xl border px-4 py-4 text-left transition-all ${
-                  method === 'toss'
-                    ? 'border-gray-900 border-2 bg-white text-gray-900'
-                    : 'border-gray-200 bg-white text-gray-400'
-                }`}
+                onClick={handlePay}
+                disabled={loading}
+                className="btn-primary"
+                style={{ width: '100%', justifyContent: 'center', padding: '0.83rem', opacity: loading ? 0.55 : 1 }}
               >
-                <p className="text-sm font-medium">토스페이</p>
-                <p className="mt-1 text-xs text-gray-400">
-                  카드 결제를 정상 플로우로 진행합니다.
-                </p>
+                {loading ? '처리 중...' : `${payableAmount.toLocaleString()}원 결제하기`}
               </button>
-
-              <button
-                type="button"
-                onClick={() => setMethod('mock')}
-                className={`w-full rounded-xl border px-4 py-4 text-left transition-all ${
-                  method === 'mock'
-                    ? 'border-gray-900 border-2 bg-white text-gray-900'
-                    : 'border-gray-200 bg-white text-gray-400'
-                }`}
-              >
-                <p className="text-sm font-medium">
-                  빠른 결제 <span className="text-xs text-gray-400">(개발용)</span>
-                </p>
-                <p className="mt-1 text-xs text-gray-400">
-                  테스트 환경에서 예약 흐름을 빠르게 확인합니다.
-                </p>
+              <button type="button" onClick={() => router.back()} className="btn-outline" style={{ width: '100%', justifyContent: 'center', padding: '0.8rem' }}>
+                이전으로 돌아가기
               </button>
             </div>
-
-            <button
-              type="button"
-              onClick={method === 'toss' ? handlePay : handleMockPay}
-              disabled={loading}
-              className="mt-5 w-full rounded-xl bg-gray-900 py-4 text-sm font-medium text-white transition-opacity disabled:opacity-40"
-            >
-              {loading ? '처리 중...' : `${amount.toLocaleString()}원 결제하기`}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="mt-3 w-full rounded-xl border border-gray-200 bg-white py-4 text-sm font-medium text-gray-600"
-            >
-              이전으로 돌아가기
-            </button>
-
-            <p className="mt-3 text-center text-xs text-gray-400">
-              선택한 방식에 따라 결제 또는 테스트 예약이 진행됩니다.
-            </p>
-          </aside>
+          </section>
         </div>
       </div>
     </main>
@@ -215,7 +162,7 @@ function PaymentPageContent() {
 
 export default function PaymentPage() {
   return (
-    <Suspense fallback={<div className="p-10 text-center">로딩 중...</div>}>
+    <Suspense fallback={<div style={{ padding: '4rem', textAlign: 'center' }}>로딩 중...</div>}>
       <PaymentPageContent />
     </Suspense>
   );

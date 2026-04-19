@@ -1,6 +1,7 @@
-export type EventCategory = 'CLASSIC' | 'CONCERT' | 'MUSICAL' | 'PLAY';
+export type EventCategory = 'CONCERT' | 'MUSICAL' | 'PLAY';
 export type EventStatus = 'ON_SALE' | 'SOLD_OUT' | 'UPCOMING' | 'ENDED' | 'CANCELLED';
-export type SeatStatus = 'AVAILABLE' | 'RESERVED' | 'BOOKED';
+export type EventSourceType = 'INTERNAL' | 'EXTERNAL';
+export type SeatStatus = 'AVAILABLE' | 'RESERVED' | 'BOOKED' | 'HOLD' | 'DISABLED';
 export type TicketStatus = 'ISSUED' | 'USED' | 'CANCELLED';
 export type RoleType = 'ROLE_CONSUMER' | 'ROLE_HOST' | 'ROLE_ADMIN';
 
@@ -32,6 +33,9 @@ export interface Event {
   title: string;
   description: string;
   category: EventCategory;
+  sourceType?: EventSourceType;
+  provider?: string;
+  externalEventId?: string;
   status: EventStatus;
   posterUrl?: string;
   venue: Venue;
@@ -78,6 +82,12 @@ export interface Ticket {
   status: TicketStatus;
   issuedAt: string;
   qrCode?: string;
+  paymentHistoryId?: number;
+  paymentId?: number;
+  reservationId?: number;
+  paymentMethod?: string;
+  paymentStatus?: string;
+  refundedAt?: string;
 }
 
 export interface PaymentHistory {

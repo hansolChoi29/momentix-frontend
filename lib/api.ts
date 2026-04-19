@@ -45,9 +45,13 @@ export const eventApi = {
 };
 
 export const reservationApi = {
+  selectAll: (eventId: number, eventPlaceId: number, eventTimeId: number) =>
+    api.post(`/reservations/events/${eventId}/${eventPlaceId}/${eventTimeId}`),
+  selectSeat: (reservationId: number, eventTimeReserveSeatId: number) =>
+    api.post(`/reservations/${reservationId}/seat/${eventTimeReserveSeatId}`),
   create: (body: object) => api.post('/reservations', body),
   myList: () => api.get('/reservations/my'),
-  cancel: (id: number) => api.delete(`/reservations/${id}`),
+  cancel: (id: number) => api.delete(`/reservations/cancel/${id}`),
 };
 
 export const paymentApi = {

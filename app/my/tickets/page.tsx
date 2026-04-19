@@ -1,196 +1,318 @@
 'use client';
-import { useEffect, useState } from 'react';
+
+import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ticketApi } from '@/lib/api';
+import { paymentApi, ticketApi } from '@/lib/api';
 import { Ticket } from '@/types';
 import { useAuthStore } from '@/store/authStore';
+import { isDemoMode } from '@/lib/demo';
 
 const STATUS_MAP: Record<string, { label: string; cls: string }> = {
-  ISSUED: { label: '발급됨', cls: 'badge-teal' },
-  USED: { label: '사용됨', cls: 'badge-gold' },
-  CANCELLED: { label: '취소됨', cls: 'badge-crimson' },
+  ISSUED: { label: '발급 완료', cls: 'badge-teal' },
+  USED: { label: '사용 완료', cls: 'badge-gold' },
+  CANCELLED: { label: '결제 취소', cls: 'badge-crimson' },
 };
 
-const MOCK_TICKETS: Ticket[] = [
-  {
-    ticketId: 1, ticketCode: 'MX-2025-001234',
-    event: { eventId: 1, title: '2025 IU HEREH WORLD TOUR IN SEOUL', category: 'CONCERT', status: 'ON_SALE', description: '', venue: { venueId: 1, name: '올림픽 주경기장', address: '서울', capacity: 68000 }, schedules: [], minPrice: 110000, maxPrice: 220000, posterUrl: 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=400&q=80' },
-    schedule: { scheduleId: 1, date: '2025-08-15', startTime: '18:00', endTime: '20:30' },
-    seat: { seatId: 1, seatNumber: 'A12', row: 'A', grade: 'VIP', price: 165000, status: 'BOOKED' },
-    status: 'ISSUED', issuedAt: '2025-04-10T14:30:00',
-  },
-  {
-    ticketId: 2, ticketCode: 'MX-2025-000892',
-    event: { eventId: 2, title: '레미제라블 내한공연', category: 'MUSICAL', status: 'UPCOMING', description: '', venue: { venueId: 2, name: 'LG아트센터 서울', address: '서울', capacity: 1200 }, schedules: [], minPrice: 99000, maxPrice: 143000, posterUrl: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&q=80' },
-    schedule: { scheduleId: 2, date: '2025-09-01', startTime: '19:30', endTime: '22:00' },
-    seat: { seatId: 2, seatNumber: 'R7', row: 'R', grade: 'R', price: 132000, status: 'BOOKED' },
-    status: 'ISSUED', issuedAt: '2025-04-08T10:15:00',
-  },
-  {
-    ticketId: 3, ticketCode: 'MX-2024-008821',
-    event: { eventId: 3, title: '오페라의 유령', category: 'MUSICAL', status: 'ENDED', description: '', venue: { venueId: 3, name: '블루스퀘어', address: '서울', capacity: 2500 }, schedules: [], minPrice: 110000, maxPrice: 154000, posterUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&q=80' },
-    schedule: { scheduleId: 3, date: '2024-12-24', startTime: '19:00', endTime: '21:30' },
-    seat: { seatId: 3, seatNumber: 'S15', row: 'S', grade: 'S', price: 110000, status: 'BOOKED' },
-    status: 'USED', issuedAt: '2024-12-10T09:00:00',
-  },
-];
+type RawTicket = Record<string, unknown>;
+
+function normalizeTicket(raw: RawTicket, index: number): Ticket {
+  const paymentId = Number(raw.paymentHistoryId ?? raw.paymentId ?? 0) || undefined;
+  const ticketId = Number(raw.ticketId ?? raw.id ?? index + 1);
+  const scheduleDate = String(raw.eventDate ?? raw.scheduleDate ?? '2026-08-15');
+  const scheduleTime = String(raw.eventTime ?? raw.startTime ?? '18:00');
+
+  return {
+    ticketId,
+    ticketCode: String(raw.ticketCode ?? raw.ticketNumber ?? `MX-${ticketId}`),
+    paymentHistoryId: paymentId,
+    paymentId,
+    paymentMethod: String(raw.paymentMethod ?? 'CARD'),
+    event: {
+      eventId: Number(raw.eventId ?? 0) || ticketId,
+      title: String(raw.eventTitle ?? '공연 정보'),
+      category: 'CONCERT',
+      status: 'ON_SALE',
+      description: '',
+      venue: {
+        venueId: Number(raw.venueId ?? 1),
+        name: String(raw.venueName ?? '공연장'),
+        address: String(raw.venueAddress ?? ''),
+        capacity: undefined,
+      },
+      schedules: [],
+      minPrice: Number(raw.price ?? 0),
+      maxPrice: Number(raw.price ?? 0),
+      posterUrl: String(raw.posterUrl ?? 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=400&q=80'),
+    },
+    schedule: {
+      scheduleId: Number(raw.scheduleId ?? 1),
+      date: scheduleDate,
+      startTime: scheduleTime,
+      endTime: '',
+    },
+    seat: {
+      seatId: Number(raw.seatId ?? 0) || ticketId,
+      seatNumber: String(raw.seatNumber ?? '1'),
+      row: String(raw.seatRow ?? 'A'),
+      grade: String(raw.seatGrade ?? 'R'),
+      price: Number(raw.price ?? 0),
+      status: 'BOOKED',
+    },
+    status: (String(raw.ticketStatus ?? raw.status ?? 'ISSUED').toUpperCase() as Ticket['status']) ?? 'ISSUED',
+    issuedAt: String(raw.issuedAt ?? new Date().toISOString()),
+  };
+}
 
 export default function MyTicketsPage() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
-  const [tickets, setTickets] = useState<Ticket[]>(MOCK_TICKETS);
+  const [nowTs] = useState(() => Date.now());
+
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [filter, setFilter] = useState<string>('ALL');
-  const [selected, setSelected] = useState<Ticket | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [cancelingId, setCancelingId] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated) { router.push('/login'); return; }
-    const fetch = async () => {
+    if (!isAuthenticated) {
+      router.push('/login');
+      return;
+    }
+
+    const fetchTickets = async () => {
       setIsLoading(true);
       try {
         const { data } = await ticketApi.myList();
-        if (data?.content?.length) setTickets(data.content);
-      } catch {}
-      setIsLoading(false);
+        const source = data?.content ?? data ?? [];
+        if (Array.isArray(source)) {
+          const normalized = source.map((item: unknown, index: number) =>
+            normalizeTicket((item ?? {}) as RawTicket, index)
+          );
+          setTickets(normalized);
+        } else {
+          setTickets([]);
+        }
+      } catch {
+        setTickets([]);
+      } finally {
+        setIsLoading(false);
+      }
     };
-    fetch();
+
+    void fetchTickets();
   }, [isAuthenticated, router]);
 
-  const filtered = filter === 'ALL' ? tickets : tickets.filter(t => t.status === filter);
+  const filtered = useMemo(
+    () => (filter === 'ALL' ? tickets : tickets.filter((ticket) => ticket.status === filter)),
+    [filter, tickets]
+  );
+
+  const handleCancelPayment = async (ticket: Ticket) => {
+    if (ticket.status === 'CANCELLED') return;
+    if (!confirm('결제를 취소하시겠습니까?')) return;
+
+    setCancelingId(ticket.ticketId);
+    try {
+      if (isDemoMode) {
+        setTickets((prev) =>
+          prev.map((item) =>
+            item.ticketId === ticket.ticketId
+              ? { ...item, status: 'CANCELLED', refundedAt: new Date().toISOString() }
+              : item
+          )
+        );
+        return;
+      }
+
+      const paymentId = ticket.paymentHistoryId ?? ticket.paymentId;
+      if (!paymentId) {
+        alert('결제 정보가 없어 취소할 수 없습니다. 결제 상세에서 다시 시도해주세요.');
+        return;
+      }
+
+      await paymentApi.cancel(paymentId);
+
+      setTickets((prev) =>
+        prev.map((item) =>
+          item.ticketId === ticket.ticketId
+            ? { ...item, status: 'CANCELLED', refundedAt: new Date().toISOString() }
+            : item
+        )
+      );
+    } catch (e: unknown) {
+      const apiError = e as { response?: { data?: { message?: string } } };
+      alert(apiError.response?.data?.message || '결제 취소에 실패했습니다.');
+    } finally {
+      setCancelingId(null);
+    }
+  };
 
   return (
-    <div style={{ minHeight: '100vh', paddingTop: '4rem' }}>
-      <div style={{ background: 'var(--charcoal)', borderBottom: '1px solid var(--muted)' }}>
-        <div className="max-w-5xl mx-auto px-6 py-12">
-          <p className="text-xs tracking-widest mb-2" style={{ color: 'var(--gold)', letterSpacing: '0.3em' }}>MY PAGE</p>
-          <h1 className="font-display text-4xl font-semibold" style={{ color: 'var(--text-bright)' }}>내 티켓</h1>
-        </div>
-      </div>
+    <main
+      style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(180deg, rgba(255,240,243,0.42) 0%, #f7f8fa 34%, #f7f8fa 100%)',
+        paddingTop: '4rem',
+      }}
+    >
+      <section style={{ maxWidth: 1100, margin: '0 auto', padding: '1.8rem 1.3rem 0.2rem' }}>
+        <p style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--primary)', letterSpacing: '0.14em' }}>MY PAGE</p>
+        <h1 style={{ marginTop: '0.35rem', fontSize: '2rem', fontWeight: 800, color: 'var(--text-main)' }}>내 티켓</h1>
+        <p style={{ marginTop: '0.4rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+          발급된 티켓과 결제 상태를 확인하고, 필요 시 결제 취소를 진행할 수 있습니다.
+        </p>
+      </section>
 
-      <div className="max-w-5xl mx-auto px-6 py-10">
-        {/* 필터 탭 */}
-        <div className="flex gap-1 mb-8 p-1" style={{ background: 'var(--surface)', border: '1px solid var(--muted)', display: 'inline-flex' }}>
-          {[{ key: 'ALL', label: '전체' }, { key: 'ISSUED', label: '예정' }, { key: 'USED', label: '사용됨' }, { key: 'CANCELLED', label: '취소됨' }].map(f => (
+      <section style={{ maxWidth: 1100, margin: '0 auto', padding: '1rem 1.3rem 2.4rem' }}>
+        <div style={{ display: 'inline-flex', gap: '0.35rem', padding: '0.25rem', borderRadius: 999, background: '#fff', border: '1px solid var(--gray-200)', marginBottom: '1rem' }}>
+          {[{ key: 'ALL', label: '전체' }, { key: 'ISSUED', label: '발급' }, { key: 'USED', label: '사용' }, { key: 'CANCELLED', label: '취소' }].map((item) => (
             <button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
-              className="px-4 py-2 text-xs transition-all"
+              key={item.key}
+              onClick={() => setFilter(item.key)}
               style={{
-                background: filter === f.key ? 'var(--gold)' : 'transparent',
-                color: filter === f.key ? 'var(--obsidian)' : 'var(--text-muted)',
-                fontWeight: filter === f.key ? 600 : 400,
-                letterSpacing: '0.05em',
+                border: 'none',
+                cursor: 'pointer',
+                borderRadius: 999,
+                padding: '0.5rem 0.95rem',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                background: filter === item.key ? 'var(--primary)' : 'transparent',
+                color: filter === item.key ? '#fff' : 'var(--text-muted)',
               }}
             >
-              {f.label}
+              {item.label}
             </button>
           ))}
         </div>
 
         {isLoading ? (
           <div className="space-y-4">
-            {Array.from({ length: 3 }).map((_, i) => <div key={i} className="skeleton h-32" />)}
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="skeleton" style={{ height: 120 }} />
+            ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-24">
-            <p className="font-display text-5xl mb-4" style={{ color: 'var(--muted)' }}>◇</p>
-            <p className="font-display text-xl mb-2" style={{ color: 'var(--text-dim)' }}>티켓이 없습니다</p>
-            <p className="text-sm mb-8" style={{ color: 'var(--text-muted)' }}>공연을 예매하고 특별한 순간을 즐겨보세요</p>
-            <button onClick={() => router.push('/events')} className="btn-outline">공연 둘러보기</button>
+          <div className="card" style={{ padding: '3rem 1.2rem', textAlign: 'center' }}>
+            <p style={{ color: 'var(--text-sub)', fontSize: '1rem', fontWeight: 700 }}>표시할 티켓이 없습니다.</p>
+            <button onClick={() => router.push('/events')} className="btn-outline" style={{ marginTop: '0.9rem' }}>
+              공연 보러가기
+            </button>
           </div>
         ) : (
-          <div className="space-y-4">
-            {filtered.map(ticket => {
-              const st = STATUS_MAP[ticket.status] || { label: ticket.status, cls: '' };
-              const isUpcoming = ticket.status === 'ISSUED' && new Date(ticket.schedule.date) > new Date();
+          <div className="space-y-3">
+            {filtered.map((ticket) => {
+              const statusInfo = STATUS_MAP[ticket.status] || { label: ticket.status, cls: '' };
+              const selected = selectedId === ticket.ticketId;
+              const paymentId = ticket.paymentHistoryId ?? ticket.paymentId;
+              const isUpcoming = ticket.status === 'ISSUED' && new Date(ticket.schedule.date) > new Date(nowTs);
+
               return (
-                <div
+                <article
                   key={ticket.ticketId}
-                  className="ticket-card cursor-pointer group"
-                  onClick={() => setSelected(selected?.ticketId === ticket.ticketId ? null : ticket)}
+                  className="card"
+                  style={{ borderRadius: 14, overflow: 'hidden', boxShadow: '0 8px 24px rgba(26,26,62,0.06)' }}
                 >
-                  <div className="flex gap-0">
-                    {/* 포스터 */}
-                    <div className="relative overflow-hidden flex-shrink-0" style={{ width: '100px' }}>
-                      <img src={ticket.event.posterUrl || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=200&q=80'} alt={ticket.event.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" style={{ minHeight: '120px' }} />
-                      <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, transparent, rgba(24,24,28,0.3))' }} />
+                  <div
+                    onClick={() => setSelectedId((prev) => (prev === ticket.ticketId ? null : ticket.ticketId))}
+                    style={{ display: 'grid', gridTemplateColumns: '94px 1fr 84px', cursor: 'pointer' }}
+                  >
+                    <div style={{ height: '100%', minHeight: 122, position: 'relative', overflow: 'hidden' }}>
+                      <img
+                        src={ticket.event.posterUrl || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=200&q=80'}
+                        alt={ticket.event.title}
+                        className="w-full h-full object-cover"
+                        style={{ minHeight: 122 }}
+                      />
                     </div>
 
-                    {/* 정보 */}
-                    <div className="flex-1 p-4 pl-6">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <span className={`badge ${st.cls} mr-2`}>{st.label}</span>
-                          {isUpcoming && <span className="badge badge-gold">D-{Math.ceil((new Date(ticket.schedule.date).getTime() - Date.now()) / 86400000)}</span>}
+                    <div style={{ padding: '1rem 1.1rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: '0.8rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <span className={`badge ${statusInfo.cls}`}>{statusInfo.label}</span>
+                          {isUpcoming && (
+                            <span className="badge badge-gold">
+                              D-{Math.ceil((new Date(ticket.schedule.date).getTime() - nowTs) / 86400000)}
+                            </span>
+                          )}
                         </div>
-                        <span className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{ticket.ticketCode}</span>
+                        <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
+                          {ticket.ticketCode}
+                        </span>
                       </div>
-                      <h3 className="font-display font-semibold text-base mb-1 transition-colors group-hover:text-gold-gradient" style={{ color: 'var(--text-bright)' }}>
-                        {ticket.event.title}
-                      </h3>
-                      <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
+
+                      <h3 style={{ marginTop: '0.45rem', fontSize: '1rem', fontWeight: 800, color: 'var(--text-main)' }}>{ticket.event.title}</h3>
+                      <p style={{ marginTop: '0.2rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                         {ticket.event.venue?.name}
                       </p>
-                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                        {new Date(ticket.schedule.date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })} {ticket.schedule.startTime}
+                      <p style={{ marginTop: '0.15rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                        {new Date(ticket.schedule.date).toLocaleDateString('ko-KR', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          weekday: 'short',
+                        })}{' '}
+                        {ticket.schedule.startTime}
                       </p>
                     </div>
 
-                    {/* 좌석 구분선 */}
-                    <div className="ticket-perforation flex-shrink-0 px-4 flex flex-col items-center justify-center" style={{ minWidth: '80px' }}>
-                      <p className="text-xs text-center mb-1" style={{ color: 'var(--text-muted)' }}>좌석</p>
-                      <p className="font-display font-semibold text-center" style={{ color: 'var(--gold)', fontSize: '1.1rem' }}>{ticket.seat.grade}</p>
-                      <p className="text-xs text-center" style={{ color: 'var(--text-dim)' }}>{ticket.seat.seatNumber}</p>
+                    <div style={{ borderLeft: '1px dashed var(--gray-300)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '0.5rem' }}>
+                      <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>좌석</p>
+                      <p style={{ marginTop: '0.1rem', fontSize: '1.05rem', fontWeight: 800, color: 'var(--primary)' }}>{ticket.seat.grade}</p>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-sub)' }}>{ticket.seat.seatNumber}</p>
                     </div>
                   </div>
 
-                  {/* 확장 패널: QR / 상세 */}
-                  {selected?.ticketId === ticket.ticketId && (
-                    <div className="animate-fade-in" style={{ borderTop: '1px dashed var(--muted)', padding: '1.5rem', background: 'rgba(201,168,76,0.03)' }}>
-                      <div className="flex flex-col md:flex-row gap-8 items-center">
-                        {/* QR 코드 영역 */}
-                        <div className="flex-shrink-0 text-center">
-                          <div className="w-36 h-36 mx-auto mb-2 flex items-center justify-center" style={{ background: 'white', padding: '8px' }}>
-                            {/* QR 패턴 */}
-                            <svg width="100" height="100" viewBox="0 0 100 100" fill="none">
-                              <rect x="5" y="5" width="35" height="35" stroke="black" strokeWidth="4" fill="none"/>
-                              <rect x="13" y="13" width="19" height="19" fill="black"/>
-                              <rect x="60" y="5" width="35" height="35" stroke="black" strokeWidth="4" fill="none"/>
-                              <rect x="68" y="13" width="19" height="19" fill="black"/>
-                              <rect x="5" y="60" width="35" height="35" stroke="black" strokeWidth="4" fill="none"/>
-                              <rect x="13" y="68" width="19" height="19" fill="black"/>
-                              {[60,65,70,75,80,85,90,60,70,80,90,65,75,85,68,78,88,63,73,83,93].map((x, i) => (
-                                <rect key={i} x={x} y={60 + (i % 7) * 5} width="4" height="4" fill={Math.random() > 0.4 ? 'black' : 'none'}/>
-                              ))}
-                            </svg>
-                          </div>
-                          <p className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{ticket.ticketCode}</p>
+                  {selected && (
+                    <div style={{ borderTop: '1px dashed var(--gray-300)', padding: '1rem 1.1rem 1.1rem', background: '#fff' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', marginBottom: '0.8rem' }}>
+                        <div style={{ border: '1px solid var(--gray-200)', borderRadius: 10, padding: '0.75rem' }}>
+                          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>결제수단</p>
+                          <p style={{ marginTop: '0.2rem', fontWeight: 700 }}>{ticket.paymentMethod || 'CARD'}</p>
                         </div>
-                        {/* 상세 정보 */}
-                        <div className="flex-1 grid grid-cols-2 gap-4 text-sm">
-                          {[
-                            { label: '공연명', value: ticket.event.title },
-                            { label: '공연장', value: ticket.event.venue?.name },
-                            { label: '날짜', value: `${ticket.schedule.date} ${ticket.schedule.startTime}` },
-                            { label: '좌석', value: `${ticket.seat.grade}석 ${ticket.seat.seatNumber}` },
-                            { label: '가격', value: `${ticket.seat.price.toLocaleString()}원` },
-                            { label: '발급일시', value: new Date(ticket.issuedAt).toLocaleString('ko-KR') },
-                          ].map(item => (
-                            <div key={item.label}>
-                              <p className="text-xs mb-1" style={{ color: 'var(--text-muted)', letterSpacing: '0.05em' }}>{item.label}</p>
-                              <p style={{ color: 'var(--text-main)' }}>{item.value}</p>
-                            </div>
-                          ))}
+                        <div style={{ border: '1px solid var(--gray-200)', borderRadius: 10, padding: '0.75rem' }}>
+                          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>결제금액</p>
+                          <p style={{ marginTop: '0.2rem', fontWeight: 700 }}>{ticket.seat.price.toLocaleString()}원</p>
                         </div>
+                      </div>
+
+                      <div style={{ background: '#FFF9F0', border: '1px solid #FFD899', borderRadius: 10, padding: '0.8rem 0.95rem', marginBottom: '0.85rem' }}>
+                        <p style={{ fontSize: '0.82rem', color: '#996600', lineHeight: 1.7 }}>
+                          결제 취소 시 결제하신 수단으로 영업일 기준 3일 이내 환불 처리됩니다.
+                        </p>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap' }}>
+                        {paymentId && (
+                          <Link href={`/my/payments/${paymentId}`} className="btn-outline" style={{ padding: '0.52rem 0.88rem', fontSize: '0.79rem' }} onClick={(e) => e.stopPropagation()}>
+                            결제 상세 보기
+                          </Link>
+                        )}
+
+                        {ticket.status !== 'CANCELLED' && (
+                          <button
+                            type="button"
+                            className="btn-primary"
+                            style={{ padding: '0.52rem 0.88rem', fontSize: '0.79rem' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleCancelPayment(ticket);
+                            }}
+                            disabled={cancelingId === ticket.ticketId}
+                          >
+                            {cancelingId === ticket.ticketId ? '취소 처리 중...' : '결제 취소'}
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}
-                </div>
+                </article>
               );
             })}
           </div>
         )}
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }
